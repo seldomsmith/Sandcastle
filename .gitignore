@@ -1,3 +1,14 @@
-.tools/bin/
-Frequency The Game/.tools/bin/
-Frequency The Game/.tools/.tools/bin/
+# Dependencies & Build Outputs
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+
+# Agent & Tools Cache
+.tools/
+tasks/
