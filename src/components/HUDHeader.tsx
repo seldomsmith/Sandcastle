@@ -1,12 +1,13 @@
 /**
  * Sandcastle vs. Tide Simulator - HUD Telemetry Header
  *
- * Top floating bar displaying Keep Integrity Gauge, Scenario Presets Selector,
+ * Top floating bar displaying Keep Integrity Gauge, Lighting Presets, Scenario Selector,
  * performance metrics, play/pause controls, tide speed toggles, stress heatmap, contour isolines, and castle sharing.
  */
 
 import React from 'react';
 import { COASTAL_SCENARIOS } from '../config/scenarios';
+import { LIGHTING_PRESETS, LightingPreset } from '../config/lightingPresets';
 import { WorkerBridge } from '../bridge/WorkerBridge';
 
 interface HUDHeaderProps {
@@ -18,6 +19,8 @@ interface HUDHeaderProps {
   showContours: boolean;
   speedMultiplier: number;
   keepHealthPercent: number;
+  activeLighting: LightingPreset;
+  onChangeLighting: (preset: LightingPreset) => void;
   onChangeSpeed: (speed: number) => void;
   onToggleHeatmap: () => void;
   onToggleContours: () => void;
@@ -36,6 +39,8 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   showContours,
   speedMultiplier,
   keepHealthPercent,
+  activeLighting,
+  onChangeLighting,
   onChangeSpeed,
   onToggleHeatmap,
   onToggleContours,
@@ -50,7 +55,6 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
     const preset = COASTAL_SCENARIOS.find((s) => s.id === scenarioId);
     if (preset) {
       WorkerBridge.getInstance().updateScenario(preset.config);
-      alert(`Switched coastal environment scenario to: ${preset.name}`);
     }
   };
 
@@ -69,21 +73,21 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         fontFamily: 'sans-serif'
       }}
     >
-      {/* Keep Integrity Gauge & Telemetry Status */}
+      {/* VisionOS-Style Frosted Glass Telemetry Header */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '14px',
-          backgroundColor: 'rgba(15, 23, 42, 0.94)',
-          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.88)',
+          backdropFilter: 'blur(16px)',
           border: '1px solid rgba(255, 255, 255, 0.2)',
           padding: '10px 18px',
-          borderRadius: '14px',
+          borderRadius: '16px',
           fontSize: '12px',
           color: '#cbd5e1',
           pointerEvents: 'auto',
-          boxShadow: '0 10px 20px -3px rgba(0, 0, 0, 0.6)'
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)'
         }}
       >
         {/* Prominent Keep Health Bar */}
@@ -96,7 +100,6 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
                 {Math.round(keepHealthPercent)}%
               </span>
             </div>
-            {/* Visual Health Progress Bar */}
             <div style={{ width: '110px', height: '6px', backgroundColor: '#334155', borderRadius: '3px', overflow: 'hidden' }}>
               <div
                 style={{
@@ -112,7 +115,38 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
 
         <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
 
-        {/* Coastal Scenario Presets Dropdown */}
+        {/* Task 2: Dynamic Time-of-Day Lighting Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}>LIGHTING:</span>
+          <select
+            value={activeLighting.id}
+            onChange={(e) => {
+              const selected = LIGHTING_PRESETS.find((p) => p.id === e.target.value);
+              if (selected) onChangeLighting(selected);
+            }}
+            style={{
+              backgroundColor: '#1e293b',
+              color: '#38bdf8',
+              fontSize: '11px',
+              fontWeight: 700,
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            {LIGHTING_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.icon} {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
+
+        {/* Coastal Scenario Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}>SCENARIO:</span>
           <select
@@ -136,36 +170,23 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
             ))}
           </select>
         </div>
-
-        <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34d399' }} />
-          <span style={{ color: '#94a3b8' }}>60 Hz</span>
-        </div>
-
-        <div>
-          <span style={{ color: '#94a3b8', fontSize: '11px' }}>TICK:</span>{' '}
-          <span style={{ fontWeight: 700, color: '#38bdf8', fontSize: '11px' }}>{lastTickMs.toFixed(1)}ms</span>
-        </div>
       </div>
 
-      {/* Tide Controls, Speed Selector, Heatmap, Contours & Share Buttons */}
+      {/* Tide Controls & Toggles */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          backgroundColor: 'rgba(15, 23, 42, 0.94)',
-          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.88)',
+          backdropFilter: 'blur(16px)',
           border: '1px solid rgba(255, 255, 255, 0.2)',
           padding: '10px 18px',
-          borderRadius: '14px',
+          borderRadius: '16px',
           pointerEvents: 'auto',
-          boxShadow: '0 10px 20px -3px rgba(0, 0, 0, 0.6)'
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)'
         }}
       >
-        {/* Speed Selector Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '4px' }}>
           <span style={{ fontSize: '11px', color: '#94a3b8', marginRight: '4px' }}>Speed:</span>
           {speeds.map((s) => (
@@ -190,7 +211,6 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
 
         <div style={{ height: '16px', width: '1px', backgroundColor: '#334155', margin: '0 4px' }} />
 
-        {/* Topographic Contours Toggle */}
         <button
           onClick={onToggleContours}
           style={{
@@ -207,7 +227,6 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
           {showContours ? '📐 Contours ON' : '📐 Contours OFF'}
         </button>
 
-        {/* Stress Heatmap Toggle */}
         <button
           onClick={onToggleHeatmap}
           style={{

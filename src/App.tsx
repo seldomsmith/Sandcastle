@@ -14,6 +14,7 @@ import { useSimulation } from './hooks/useSimulation';
 import { WorkerBridge } from './bridge/WorkerBridge';
 import { BlueprintEncoder } from './utils/BlueprintEncoder';
 import { ToolType } from './types/simulation';
+import { LightingPreset, LIGHTING_PRESETS } from './config/lightingPresets';
 
 export const App: React.FC = () => {
   const {
@@ -40,6 +41,7 @@ export const App: React.FC = () => {
   const [initialKeepElev, setInitialKeepElev] = useState<number | null>(null);
   const [isAutopsyOpen, setIsAutopsyOpen] = useState(false);
   const [survivalTime, setSurvivalTime] = useState(0);
+  const [activeLighting, setActiveLighting] = useState<LightingPreset>(LIGHTING_PRESETS[0]);
 
   // Measure initial Keep Core elevation when simulation initializes
   useEffect(() => {
@@ -53,7 +55,6 @@ export const App: React.FC = () => {
       let totalElev = 0;
       let count = 0;
 
-      // Average central 10x10 keep region
       for (let dy = -5; dy <= 5; dy++) {
         for (let dx = -5; dx <= 5; dx++) {
           const idx = (H / 2 + dy) * W + (W / 2 + dx);
@@ -79,7 +80,6 @@ export const App: React.FC = () => {
         let totalWater = 0;
         let count = 0;
 
-        // Sample 10x10 keep core area
         for (let dy = -5; dy <= 5; dy++) {
           for (let dx = -5; dx <= 5; dx++) {
             const idx = (H / 2 + dy) * W + (W / 2 + dx);
@@ -93,7 +93,6 @@ export const App: React.FC = () => {
         const avgWater = totalWater / count;
         const baseElev = initialKeepElev || 0.45;
 
-        // Health percentage equation: ratio of remaining sand height minus water submergence penalty
         const heightRatio = Math.max(0, Math.min(1.0, (avgElev - 0.05) / (baseElev - 0.05)));
         const submergencePenalty = Math.min(1.0, avgWater / 0.15);
 
@@ -142,6 +141,7 @@ export const App: React.FC = () => {
         showHeatmap={showHeatmap}
         showContours={showContours}
         isOrbitLocked={activeTool !== ToolType.NONE}
+        lightingPreset={activeLighting}
       />
 
       {/* Top Glassmorphic Telemetry HUD */}
@@ -155,6 +155,8 @@ export const App: React.FC = () => {
           showContours={showContours}
           speedMultiplier={speedMultiplier}
           keepHealthPercent={keepHealth}
+          activeLighting={activeLighting}
+          onChangeLighting={setActiveLighting}
           onChangeSpeed={handleSpeedChange}
           onToggleHeatmap={() => setShowHeatmap((prev) => !prev)}
           onToggleContours={() => setShowContours((prev) => !prev)}

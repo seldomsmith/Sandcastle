@@ -1,18 +1,21 @@
 /**
  * Sandcastle vs. Tide Simulator - R3F Simulation Viewport
  *
- * Primary 3D canvas container mounting the lighting, sand terrain mesh,
- * water surface layer, camera rig, and pointer raycasting interactions.
+ * Primary 3D canvas container mounting dynamic lighting presets, sand terrain mesh,
+ * water surface layer, wave particle systems, 3D hover telemetry reticle, and camera rig.
  */
 
 import React, { useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { SandTerrainMesh } from './SandTerrainMesh';
 import { WaterSurfaceMesh } from './WaterSurfaceMesh';
+import { WaveParticleSystem } from './WaveParticleSystem';
+import { TelemetryReticle } from './TelemetryReticle';
 import { CameraRig } from './CameraRig';
 import { PointerRaycaster } from './PointerRaycaster';
 import { WorkerBridge } from '../bridge/WorkerBridge';
 import { ToolType } from '../types/simulation';
+import { LightingPreset, LIGHTING_PRESETS } from '../config/lightingPresets';
 
 interface SimulationViewportProps {
   activeTool: ToolType;
@@ -21,6 +24,7 @@ interface SimulationViewportProps {
   showHeatmap?: boolean;
   showContours?: boolean;
   isOrbitLocked?: boolean;
+  lightingPreset?: LightingPreset;
 }
 
 export const SimulationViewport: React.FC<SimulationViewportProps> = ({
@@ -29,7 +33,8 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
   brushStrength,
   showHeatmap = false,
   showContours = false,
-  isOrbitLocked = false
+  isOrbitLocked = false,
+  lightingPreset = LIGHTING_PRESETS[0]
 }) => {
   const [isBridgeReady, setIsBridgeReady] = useState(false);
 
@@ -59,14 +64,14 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
         gl={{ antialias: true, alpha: false }}
         style={{ width: '100vw', height: '100vh' }}
       >
-        <color attach="background" args={['#0f172a']} />
+        <color attach="background" args={[lightingPreset.skyColor]} />
 
-        {/* Dynamic Coastal Environment Lighting */}
-        <ambientLight intensity={0.65} color="#e2e8f0" />
+        {/* Dynamic Coastal Environment Lighting Presets (Task 2) */}
+        <ambientLight intensity={0.65} color={lightingPreset.ambientColor} />
         <directionalLight
-          position={[6, 12, 8]}
-          intensity={1.2}
-          color="#fffbeb"
+          position={lightingPreset.sunPosition}
+          intensity={1.3}
+          color={lightingPreset.sunColor}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
@@ -75,6 +80,10 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
         {/* Dynamic Simulation Meshes */}
         <SandTerrainMesh showHeatmap={showHeatmap} showContours={showContours} />
         <WaterSurfaceMesh />
+
+        {/* GPU Spray Particle Engine & 3D Hover Telemetry Reticle */}
+        <WaveParticleSystem isBioluminescent={lightingPreset.bioluminescentFoam} />
+        <TelemetryReticle />
 
         {/* 3D Pointer Raycasting Sculpting Engine */}
         <PointerRaycaster

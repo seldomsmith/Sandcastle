@@ -1,8 +1,8 @@
 /**
  * Sandcastle vs. Tide Simulator - Water Surface Shaders
  *
- * Renders fluid layer with vertex collapse onto terrain bed for h < 0.002m,
- * shoreline edge foam, whitecaps, specular highlights, and depth transparency.
+ * Renders fluid layer with vertex collapse, chromatic refraction distortion (Task 1),
+ * Night Tide bioluminescent wave foam glow (Task 2), edge foam, and specular highlights.
  */
 
 export const waterVertexShader = /* glsl */ `
@@ -23,11 +23,9 @@ export const waterVertexShader = /* glsl */ `
 
     vWaterDepth = h;
 
-    // Collapse vertex directly onto terrain bed (z = b) if waterDepth < 0.002m to eliminate floating planes
     float effectiveWaterDepth = h < 0.002 ? 0.0 : h;
     vTotalElevation = b + effectiveWaterDepth;
 
-    // Displace vertex strictly along surface normal
     vec3 displacedPos = position;
     displacedPos.z = vTotalElevation;
 
@@ -46,6 +44,7 @@ export const waterFragmentShader = /* glsl */ `
   uniform vec3 uWaterColor;
   uniform vec3 uDeepWaterColor;
   uniform float uTime;
+  uniform bool uBioluminescent; // Night Tide Bioluminescence flag
 
   varying vec2 vUv;
   varying float vWaterDepth;
@@ -54,7 +53,6 @@ export const waterFragmentShader = /* glsl */ `
   varying vec3 vNormalWS;
 
   void main() {
-    // Discard dry regions where water depth is below collapse threshold
     if (vWaterDepth < 0.002) {
       discard;
     }
@@ -68,6 +66,11 @@ export const waterFragmentShader = /* glsl */ `
     float depthFactor = clamp(vWaterDepth / 0.30, 0.0, 1.0);
     vec3 waterBase = mix(uWaterColor, uDeepWaterColor, depthFactor);
 
+    // Task 1: Chromatic Refraction Distortion
+    vec2 refractionOffset = vec2(sin(vUv.y * 50.0 + uTime * 2.0), cos(vUv.x * 50.0 + uTime * 2.0)) * 0.002;
+    vec3 refractionColor = waterBase + vec3(refractionOffset.x * 2.0, refractionOffset.y * 3.0, -refractionOffset.x);
+    waterBase = mix(waterBase, refractionColor, 0.4);
+
     // Shoreline Edge Foam (where depth is shallow < 0.015m)
     float foamLine = 1.0 - smoothstep(0.002, 0.015, vWaterDepth);
 
@@ -75,10 +78,14 @@ export const waterFragmentShader = /* glsl */ `
     float waveFoamPattern = sin(vUv.y * 120.0 - uTime * 4.0) * cos(vUv.x * 80.0);
     float whitecapCrest = smoothstep(0.4, 0.8, waveFoamPattern) * smoothstep(0.005, 0.02, vWaterDepth);
 
-    vec3 foamColor = vec3(0.96, 0.98, 1.0);
+    // Task 2: Night Tide Bioluminescent Glowing Foam
+    vec3 foamColor = uBioluminescent ? vec3(0.1, 0.85, 1.0) : vec3(0.96, 0.98, 1.0);
     float totalFoam = clamp(foamLine * 0.75 + whitecapCrest * 0.5, 0.0, 0.95);
 
     vec3 colorWithFoam = mix(waterBase, foamColor, totalFoam);
+    if (uBioluminescent && totalFoam > 0.3) {
+      colorWithFoam += vec3(0.0, 0.6, 0.9) * totalFoam * 0.8; // Bioluminescent glow emit
+    }
 
     // Specular Reflection Highlight
     vec3 halfDir = normalize(lightDir + viewDir);
