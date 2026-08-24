@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Web Worker Simulation Engine
  *
  * Dedicated worker thread execution context running the Extended Piped-Flow hydrodynamics,
- * geotechnical detachment, 90-degree wall block shear, castle bucket stamp, and atomic sync loop.
+ * geotechnical detachment, 90-degree wall block shear, wet sand turret bucket stamp, and atomic sync loop.
  */
 
 import {
@@ -157,16 +157,17 @@ function initializeTerrain(buf: SharedSimulationBuffers): void {
       if (dist < radius) {
         const heightFactor = Math.cos((dist / radius) * (Math.PI / 2));
         bedHeight[idx] = BEDROCK_ELEVATION + heightFactor * 0.45;
-        compaction[idx] = 0.6;
+        compaction[idx] = 0.8;
+        saturation[idx] = 0.35; // Wet-packed molded sand look
       } else {
         bedHeight[idx] = BEDROCK_ELEVATION + 0.05;
-        compaction[idx] = 0.2;
+        compaction[idx] = 0.3;
+        saturation[idx] = 0.1;
       }
 
       waterDepth[idx] = y < H * 0.1 ? (0.02 - (y / (H * 0.1)) * 0.02) : 0.0;
       momentumX[idx] = 0.0;
       momentumY[idx] = 0.0;
-      saturation[idx] = waterDepth[idx] > 0 ? 0.8 : 0.1;
       materialFlags[idx] = 0.0; // Sand
     }
   }
@@ -176,7 +177,7 @@ function initializeTerrain(buf: SharedSimulationBuffers): void {
  * Applies interactive raycast tool brushes to the grid.
  */
 function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x: number; y: number; radius: number; strength: number }): void {
-  const { bedHeight, compaction, materialFlags } = buf;
+  const { bedHeight, compaction, saturation, materialFlags } = buf;
   const W = GRID_WIDTH;
   const H = GRID_HEIGHT;
 
@@ -202,6 +203,8 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
       switch (tool.type) {
         case ToolType.RAISE:
           bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + delta);
+          compaction[idx] = Math.min(0.9, compaction[idx] + delta);
+          saturation[idx] = Math.min(0.4, saturation[idx] + 0.1); // Damp sand texture
           break;
 
         case ToolType.DIG:
@@ -210,6 +213,7 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
 
         case ToolType.COMPACT:
           compaction[idx] = Math.min(1.0, compaction[idx] + delta * 2.0);
+          saturation[idx] = Math.min(0.5, saturation[idx] + 0.1);
           break;
 
         case ToolType.STONE:
@@ -218,22 +222,23 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
           break;
 
         case ToolType.WALL_90:
-          // Vertical 90-degree wall (Flag 2.0): High wall elevation with vertical profile
+          // Vertical 90-degree wall (Flag 2.0): Damp, densely-molded wet sand wall
           bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + delta * 1.8);
           materialFlags[idx] = 2.0; // 90-Degree wall flag for chunk collapse
-          compaction[idx] = 0.85;
+          compaction[idx] = 0.95;
+          saturation[idx] = 0.45; // Dark, damp wet sand texture
           break;
 
         case ToolType.BUCKET: {
-          // Stamp iconic sandcastle turret bucket with crenellations
+          // Stamp iconic sandcastle turret bucket with wet-packed damp sand texture
           const bucketR = Math.max(3, tool.radius);
           const distBucket = Math.sqrt(distSq);
           if (distBucket <= bucketR) {
-            // Tapered tower shape with top crenellation notches
             const isCrenellation = (Math.atan2(dy, dx) * 4) % 1.0 > 0.5;
             const towerHeight = 0.28 + (isCrenellation ? 0.05 : 0.0);
             bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + towerHeight);
-            compaction[idx] = 0.9;
+            compaction[idx] = 1.0;     // Fully packed wet-molded turret
+            saturation[idx] = 0.50;   // Realistic wet sand specular sheen & dark tone
           }
           break;
         }
