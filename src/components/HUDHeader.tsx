@@ -36,7 +36,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   onPauseTide,
   onReset
 }) => {
-  const speeds = [0.5, 1, 2, 5];
+  const speeds = [0.5, 1, 2, 5, 10, 25];
 
   return (
     <div

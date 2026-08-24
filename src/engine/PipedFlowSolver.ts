@@ -3,7 +3,7 @@
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
  * Features thin-sheet coastal water swash (pushing inland) and backwash (draining seaward),
- * open seaward drainage boundary at Y=0, and continuous 60-second tide progression.
+ * open seaward drainage boundary at Y=0, and fast 12-second base tide progression.
  */
 
 import {
@@ -51,22 +51,22 @@ export class PipedFlowSolver {
     const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.2) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. SWASH / BACKWASH WAVE CYCLE & TIDE ADVANCEMENT (60s total beach traversal at 1x)
+    // 1. SWASH / BACKWASH WAVE CYCLE & TIDE ADVANCEMENT (12s total beach traversal at 1x)
     const timeSec = tideFrame * dt;
-    this.wavePhase += (2.0 * Math.PI * dt) / 4.0; // 4-second wave cycle (2s swash, 2s backwash)
+    this.wavePhase += (2.0 * Math.PI * dt) / 2.5; // Fast 2.5s wave cycle
 
     // Swash pulse factor [-1.0 .. +1.0]
     const swashPulse = Math.sin(this.wavePhase);
     const isSwash = swashPulse > 0;
 
-    // Tide progress: 0.0 at T=0s -> 1.0 at T=60s
-    const tideProgress = Math.min(1.0, timeSec / 60.0);
+    // Tide progress: 0.0 at T=0s -> 1.0 at T=12s (Full map inundation in 12s at 1x!)
+    const tideProgress = Math.min(1.0, timeSec / 12.0);
     
-    // Shoreline swash reach line moves steadily across grid Y [10..240] over 60 seconds
-    const meanShorelineY = Math.floor(10 + tideProgress * 230);
-    const currentReachY = Math.min(H - 1, meanShorelineY + (isSwash ? Math.floor(swashPulse * 16) : -Math.floor(Math.abs(swashPulse) * 8)));
+    // Shoreline swash reach line moves steadily across grid Y [10..245] over 12 seconds
+    const meanShorelineY = Math.floor(10 + tideProgress * 235);
+    const currentReachY = Math.min(H - 1, meanShorelineY + (isSwash ? Math.floor(swashPulse * 20) : -Math.floor(Math.abs(swashPulse) * 10)));
 
-    // Thin coastal water sheet thickness (capped at 2.5cm max depth!)
+    // Thin coastal water sheet thickness (capped at 2.5cm max depth)
     const maxSheetDepth = 0.025;
     const swashDepth = isSwash ? (swashPulse * maxSheetDepth) : 0.003;
 
@@ -75,11 +75,11 @@ export class PipedFlowSolver {
       const idx = x; // Y = 0 row (Ocean boundary)
       if (isSwash) {
         waterDepth[idx] = Math.min(maxSheetDepth, swashDepth);
-        momentumY[idx] = 0.2 * swashPulse; // Positive inland momentum
+        momentumY[idx] = 0.25 * swashPulse; // Positive inland momentum
       } else {
         // Backwash phase: drain water back out seaward into ocean
         waterDepth[idx] *= 0.6;
-        momentumY[idx] = -0.25 * Math.abs(swashPulse); // Negative seaward momentum
+        momentumY[idx] = -0.3 * Math.abs(swashPulse); // Negative seaward momentum
       }
     }
 
