@@ -37,13 +37,36 @@ export const App: React.FC = () => {
   const [showContours, setShowContours] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
   const [keepHealth, setKeepHealth] = useState(100);
+  const [initialKeepElev, setInitialKeepElev] = useState<number | null>(null);
   const [isAutopsyOpen, setIsAutopsyOpen] = useState(false);
   const [survivalTime, setSurvivalTime] = useState(0);
 
-  // Monitor Keep Health during active tide surge
+  // Measure initial Keep Core elevation when simulation initializes
   useEffect(() => {
-    if (!isTideActive) return;
+    if (!isInitialized) return;
+    const bridge = WorkerBridge.getInstance();
+    const buffers = bridge.getBuffers();
+    if (buffers) {
+      const { bedHeight } = buffers;
+      const W = 256;
+      const H = 256;
+      let totalElev = 0;
+      let count = 0;
 
+      // Average central 10x10 keep region
+      for (let dy = -5; dy <= 5; dy++) {
+        for (let dx = -5; dx <= 5; dx++) {
+          const idx = (H / 2 + dy) * W + (W / 2 + dx);
+          totalElev += bedHeight[idx];
+          count++;
+        }
+      }
+      setInitialKeepElev(totalElev / count);
+    }
+  }, [isInitialized]);
+
+  // Continuously evaluate Keep Integrity Health (0%–100%) during simulation
+  useEffect(() => {
     const interval = setInterval(() => {
       const bridge = WorkerBridge.getInstance();
       const buffers = bridge.getBuffers();
@@ -51,26 +74,42 @@ export const App: React.FC = () => {
         const { bedHeight, waterDepth } = buffers;
         const W = 256;
         const H = 256;
-        const centerIdx = (H / 2) * W + (W / 2);
-        
-        // Evaluate Keep Core elevation & water submergence
-        const coreElev = bedHeight[centerIdx];
-        const coreWater = waterDepth[centerIdx];
 
-        // Health drops if keep height erodes or becomes submerged
-        const health = Math.max(0, Math.min(100, (coreElev / 0.45) * 100 - (coreWater > 0.05 ? 40 : 0)));
+        let totalElev = 0;
+        let totalWater = 0;
+        let count = 0;
+
+        // Sample 10x10 keep core area
+        for (let dy = -5; dy <= 5; dy++) {
+          for (let dx = -5; dx <= 5; dx++) {
+            const idx = (H / 2 + dy) * W + (W / 2 + dx);
+            totalElev += bedHeight[idx];
+            totalWater += waterDepth[idx];
+            count++;
+          }
+        }
+
+        const avgElev = totalElev / count;
+        const avgWater = totalWater / count;
+        const baseElev = initialKeepElev || 0.45;
+
+        // Health percentage equation: ratio of remaining sand height minus water submergence penalty
+        const heightRatio = Math.max(0, Math.min(1.0, (avgElev - 0.05) / (baseElev - 0.05)));
+        const submergencePenalty = Math.min(1.0, avgWater / 0.15);
+
+        const health = Math.max(0, Math.min(100, Math.round((heightRatio * 100) * (1.0 - submergencePenalty * 0.8))));
         setKeepHealth(health);
 
-        if (health <= 10 && !isAutopsyOpen) {
+        if (isTideActive && health <= 10 && !isAutopsyOpen) {
           setIsAutopsyOpen(true);
           setSurvivalTime(frameCount / 60.0);
           pauseTide();
         }
       }
-    }, 200);
+    }, 150);
 
     return () => clearInterval(interval);
-  }, [isTideActive, frameCount, isAutopsyOpen, pauseTide]);
+  }, [isTideActive, frameCount, isAutopsyOpen, initialKeepElev, pauseTide]);
 
   const handleShareCastle = () => {
     const bridge = WorkerBridge.getInstance();
