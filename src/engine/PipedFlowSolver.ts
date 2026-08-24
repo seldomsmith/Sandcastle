@@ -2,9 +2,8 @@
  * Sandcastle vs. Tide Simulator - Extended Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Integrates WaveGenerator for One-Way Non-Vacuum Inlet boundary conditions,
- * dynamic Manning wet-bed friction scaling (C_f = 0.06 -> 0.012), and 100% emergent
- * advective momentum transfer across the full 256-cell domain.
+ * Features strict outflow scaling safety factor (0.5 max outflow volume), velocity clamping (2.0 m/s),
+ * Laplacian spatial diffusion filter (nu = 0.15) for spire elimination, and dynamic Manning friction scaling.
  */
 
 import {
@@ -27,6 +26,7 @@ export class PipedFlowSolver {
   private fluxT: Float32Array;
   private fluxB: Float32Array;
   private deltaDepth: Float32Array;
+  private smoothDepthBuffer: Float32Array;
 
   private waveGenerator: WaveGenerator;
 
@@ -36,6 +36,7 @@ export class PipedFlowSolver {
     this.fluxT = new Float32Array(CELL_COUNT);
     this.fluxB = new Float32Array(CELL_COUNT);
     this.deltaDepth = new Float32Array(CELL_COUNT);
+    this.smoothDepthBuffer = new Float32Array(CELL_COUNT);
 
     this.waveGenerator = new WaveGenerator();
   }
@@ -56,10 +57,10 @@ export class PipedFlowSolver {
     const cellArea = dx * dx;
     const simTime = tideFrame * dt;
 
-    // 1. ONE-WAY NON-VACUUM INLET BOUNDARY UPDATE AT ROW Y = 0
+    // 1. DISCRETE PERIODIC WAVE CYCLE BOUNDARY UPDATE (Row Y = 0)
     this.waveGenerator.updateBoundary(buffers, scenario, simTime);
 
-    // 2. PIPE FLUX COMPUTATION WITH DYNAMIC MANNING WET-BED FRICTION SCALING
+    // 2. PIPE FLUX COMPUTATION WITH STRICT 0.5 OUTFLOW SAFETY SCALING
     for (let y = 0; y < H; y++) {
       const rowOffset = y * W;
 
@@ -83,10 +84,7 @@ export class PipedFlowSolver {
         const totalHeadT = (y < H - 1) ? bedHeight[idx + W] + waterDepth[idx + W] : totalHead0;
         const totalHeadB = (y > 0) ? bedHeight[idx - W] + waterDepth[idx - W] : totalHead0;
 
-        // Dynamic Manning Wet-Bed Friction Scaling (C_f):
-        // Dry sand (S < 0.2): High friction (C_f = 0.06) for initial porous resistance.
-        // Saturated / Wet sand (S > 0.7 or h > 0.005m): Low friction (C_f = 0.012) allowing
-        // thin-sheet wave momentum to propagate across full 256-cell domain without stalling.
+        // Dynamic Manning Wet-Bed Friction Scaling
         const sat = saturation[idx];
         const isWet = sat > 0.7 || h0 > 0.005;
         const frictionCoeff = isWet ? 0.012 : 0.06;
@@ -99,7 +97,7 @@ export class PipedFlowSolver {
         let fT = Math.max(0, this.fluxT[idx] + localPipeFactor * (totalHead0 - totalHeadT));
         let fB = Math.max(0, this.fluxB[idx] + localPipeFactor * (totalHead0 - totalHeadB));
 
-        // Advective momentum coupling
+        // Momentum advection
         if (momentumY[idx] > 0) {
           fT += momentumY[idx] * localPipeFactor * 0.3;
         } else if (momentumY[idx] < 0) {
@@ -112,11 +110,12 @@ export class PipedFlowSolver {
           fL += Math.abs(momentumX[idx]) * localPipeFactor * 0.3;
         }
 
+        // Maximum Outflow Scaling: sum(F_out) * dt <= h_cell * Area * 0.5 (Strict safety factor of 0.5 to prevent spires)
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;
-        const availableVolume = h0 * cellArea;
+        const maxSafeOutflowVolume = h0 * cellArea * 0.5;
 
-        if (totalOutflowVolume > availableVolume && totalOutflowVolume > 0) {
-          const scale = availableVolume / totalOutflowVolume;
+        if (totalOutflowVolume > maxSafeOutflowVolume && totalOutflowVolume > 0) {
+          const scale = maxSafeOutflowVolume / totalOutflowVolume;
           fR *= scale;
           fL *= scale;
           fT *= scale;
@@ -130,7 +129,7 @@ export class PipedFlowSolver {
       }
     }
 
-    // 3. WATER DEPTH & MOMENTUM UPDATE (100% Emergent Hydrodynamics)
+    // 3. WATER DEPTH & VELOCITY UPDATE WITH MAX VELOCITY CLAMPING (2.0 m/s)
     this.deltaDepth.fill(0);
 
     for (let y = 0; y < H; y++) {
@@ -154,23 +153,48 @@ export class PipedFlowSolver {
 
         this.deltaDepth[idx] = netVolumeChange / cellArea;
 
-        const netUx = ((inR - fL) + (fR - inL)) * 0.5;
-        const netUy = ((inT - fB) + (fT - inB)) * 0.5;
+        // Maximum Velocity Clamp: max(|u|, |v|) <= 2.0 m/s
+        let ux = (((inR - fL) + (fR - inL)) * 0.5) / dx;
+        let uy = (((inT - fB) + (fT - inB)) * 0.5) / dx;
 
-        momentumX[idx] = netUx / dx;
-        momentumY[idx] = netUy / dx;
+        const maxVel = 2.0;
+        ux = Math.max(-maxVel, Math.min(maxVel, ux));
+        uy = Math.max(-maxVel, Math.min(maxVel, uy));
+
+        momentumX[idx] = ux * waterDepth[idx];
+        momentumY[idx] = uy * waterDepth[idx];
       }
     }
 
     for (let i = 0; i < CELL_COUNT; i++) {
       let hNew = waterDepth[i] + this.deltaDepth[i];
-
       if (hNew < MIN_WATER_DEPTH) {
         hNew = 0.0;
         momentumX[i] = 0.0;
         momentumY[i] = 0.0;
       }
       waterDepth[i] = hNew;
+    }
+
+    // 4. LAPLACIAN SMOOTHING / VISCOSITY FILTER (nu = 0.15)
+    const nu = 0.15;
+    this.smoothDepthBuffer.set(waterDepth);
+
+    for (let y = 1; y < H - 1; y++) {
+      const rowOffset = y * W;
+      for (let x = 1; x < W - 1; x++) {
+        const idx = rowOffset + x;
+        const hC = this.smoothDepthBuffer[idx];
+        if (hC < MIN_WATER_DEPTH) continue;
+
+        const hL = this.smoothDepthBuffer[idx - 1];
+        const hR = this.smoothDepthBuffer[idx + 1];
+        const hB = this.smoothDepthBuffer[idx - W];
+        const hT = this.smoothDepthBuffer[idx + W];
+
+        const laplacianAvg = (hL + hR + hB + hT) * 0.25;
+        waterDepth[idx] = hC + nu * (laplacianAvg - hC);
+      }
     }
   }
 }

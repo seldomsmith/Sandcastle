@@ -1,8 +1,8 @@
 /**
  * Sandcastle vs. Tide Simulator - Water Surface Shaders
  *
- * Renders fluid layer with foam lines along shallow sand edges,
- * wave crest whitecaps, specular highlights, and depth transparency.
+ * Renders fluid layer with vertex collapse onto terrain bed for h < 0.002m,
+ * shoreline edge foam, whitecaps, specular highlights, and depth transparency.
  */
 
 export const waterVertexShader = /* glsl */ `
@@ -18,17 +18,19 @@ export const waterVertexShader = /* glsl */ `
 
   void main() {
     vUv = uv;
-    float depth = texture2D(uWaterDepthMap, uv).r;
-    float bed = texture2D(uBedHeightMap, uv).r;
+    float b = texture2D(uBedHeightMap, uv).r;
+    float h = texture2D(uWaterDepthMap, uv).r;
 
-    // Smooth emergent water surface elevation (supports deep standing moat water without spire artifacts)
-    float smoothDepth = max(0.0, depth);
+    vWaterDepth = h;
 
-    vWaterDepth = smoothDepth;
-    vTotalElevation = bed + smoothDepth;
+    // Collapse vertex directly onto terrain bed (z = b) if waterDepth < 0.002m to eliminate floating planes
+    float effectiveWaterDepth = h < 0.002 ? 0.0 : h;
+    vTotalElevation = b + effectiveWaterDepth;
 
-    // Displace vertex smoothly to total water surface height
-    vec3 displacedPos = position + vec3(0.0, 0.0, vTotalElevation);
+    // Displace vertex strictly along surface normal
+    vec3 displacedPos = position;
+    displacedPos.z = vTotalElevation;
+
     vec4 worldPos = modelMatrix * vec4(displacedPos, 1.0);
     vWorldPosition = worldPos.xyz;
 
@@ -52,7 +54,8 @@ export const waterFragmentShader = /* glsl */ `
   varying vec3 vNormalWS;
 
   void main() {
-    if (vWaterDepth < 0.0005) {
+    // Discard dry regions where water depth is below collapse threshold
+    if (vWaterDepth < 0.002) {
       discard;
     }
 
@@ -62,11 +65,11 @@ export const waterFragmentShader = /* glsl */ `
     float fresnel = pow(1.0 - max(0.0, dot(viewDir, vec3(0.0, 1.0, 0.0))), 3.0);
     fresnel = clamp(fresnel, 0.2, 0.8);
 
-    float depthFactor = clamp(vWaterDepth / 0.35, 0.0, 1.0);
+    float depthFactor = clamp(vWaterDepth / 0.30, 0.0, 1.0);
     vec3 waterBase = mix(uWaterColor, uDeepWaterColor, depthFactor);
 
     // Shoreline Edge Foam (where depth is shallow < 0.015m)
-    float foamLine = 1.0 - smoothstep(0.001, 0.015, vWaterDepth);
+    float foamLine = 1.0 - smoothstep(0.002, 0.015, vWaterDepth);
 
     // Turbulent Whitecap Crest Foam Pattern
     float waveFoamPattern = sin(vUv.y * 120.0 - uTime * 4.0) * cos(vUv.x * 80.0);

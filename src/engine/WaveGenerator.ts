@@ -1,80 +1,71 @@
 /**
  * Sandcastle vs. Tide Simulator - Dynamic Coastal Wave & Tide Generator Engine
  *
- * Implements a One-Way Non-Vacuum Coastal Inlet Boundary Condition:
- * 1. Continuous Ambient Sea Surface Level (eta_sea):
- *    eta_base(t) = H_max * sin^2(pi * t / (2 * T_duration))
- *    eta_surge(t) = A1 * sin(omega1 * t) + A2 * cos(omega2 * t + phi) + S_group(t)
- *    eta_sea(t) = eta_base(t) + max(0, eta_surge(t))
+ * Implements a Discrete Periodic Wave Cycle Engine:
+ * 1. Wave Period (T = 8.0 seconds per wave):
+ *    - Surge Phase (0.0s -> 3.5s): Inject a shallow wave pulse (h = 0.02m -> 0.04m)
+ *      with forward kinetic velocity (v_y = +1.2 m/s) surging up the beach.
+ *    - Ebb / Backwash Phase (3.5s -> 8.0s): Shut off water injection completely at Y = 0.
+ *      Set velocity at Y = 0 to allow receding backwash to drain naturally seaward.
  *
- * 2. One-Way Non-Vacuum Boundary Condition at Row Y = 0:
- *    - Inflow (eta_sea > b + h): Inject water mass up to incoming crest level and apply
- *      shallow-water celerity: v_y(x, 0) = sqrt(g * max(0.005, eta_sea - b_{x,0}))
- *    - Outflow (eta_sea <= b + h): Allow backwash drainage only when inland head is strictly
- *      higher than ambient sea level (b + h > eta_base). Clamp boundary depth to eta_base
- *      to preserve upstream standing water in moats and excavated basins.
+ * 2. Macro Base Tide Ratchet:
+ *    - Every completed 8-second wave cycle, ratchet the base mean sea level by +0.02m.
+ *    - Each successive wave starts its run-up higher up the beach face.
  */
 
 import { GRID_WIDTH, GRAVITY } from '../config/constants';
 import { SharedSimulationBuffers, ScenarioConfig } from '../types/simulation';
 
 export class WaveGenerator {
-  private totalTideDuration: number = 60.0; // 60 seconds total tide progression
-  private maxTideHeight: number = 0.38;     // Peak astronomical tide height in metres
+  private wavePeriod: number = 8.0;      // 8.0 seconds per discrete wave cycle
+  private surgeDuration: number = 3.5;   // 3.5 seconds forward surge phase
+  private tideIncrement: number = 0.02;  // +0.02m sea level ratchet per cycle
+  private maxMacroTide: number = 0.40;    // Peak macro tide elevation cap (m)
 
   /**
-   * Computes the dynamic ambient sea surface level and updates the seaward boundary condition at row Y = 0.
+   * Computes discrete periodic wave cycles and ratchets base sea level at row Y = 0.
    */
   public updateBoundary(buffers: SharedSimulationBuffers, scenario: ScenarioConfig, simTime: number): void {
     const { bedHeight, waterDepth, momentumY } = buffers;
     const W = GRID_WIDTH;
-    const g = GRAVITY;
 
-    // 1. CONTINUOUS AMBIENT SEA SURFACE LEVEL (eta_sea)
-    const tideRatio = Math.min(1.0, simTime / (2.0 * this.totalTideDuration));
-    const etaBase = this.maxTideHeight * Math.pow(Math.sin((Math.PI * tideRatio)), 2.0);
+    // Determine current wave cycle index and cycle phase position
+    const cycleIndex = Math.floor(simTime / this.wavePeriod);
+    const cycleTime = simTime % this.wavePeriod;
+    const isSurgePhase = cycleTime < this.surgeDuration;
 
-    // High-frequency swell components and low-frequency group set envelopes
-    const omega1 = 2.4;
-    const omega2 = 4.1;
-    const phi = 0.52;
+    // Macro base tide ratchets by +0.02m every completed 8s cycle
+    const baseMacroTide = Math.min(this.maxMacroTide, cycleIndex * this.tideIncrement);
 
-    const A1 = 0.035;
-    const A2 = 0.018;
+    // 1. SURGE PHASE (0.0s -> 3.5s): Inject shallow wave pulse with forward kinetic velocity
+    if (isSurgePhase) {
+      const surgeNormalized = cycleTime / this.surgeDuration;
+      const wavePulseHeight = 0.02 + 0.02 * Math.sin(Math.PI * surgeNormalized);
+      const targetCrestElevation = baseMacroTide + wavePulseHeight;
 
-    const swell1 = A1 * Math.sin(omega1 * simTime);
-    const swell2 = A2 * Math.cos(omega2 * simTime + phi);
-    const groupEnvelope = Math.sin(simTime * 0.35) > 0.3 ? 0.025 : 0.0;
+      for (let x = 0; x < W; x++) {
+        const idx = x; // Row Y = 0 ocean boundary cell
+        const b0 = bedHeight[idx];
+        const injectedDepth = Math.max(0.01, targetCrestElevation - b0);
 
-    const etaSurge = swell1 + swell2 + groupEnvelope;
-    const etaSea = etaBase + Math.max(0.0, etaSurge);
-
-    // 2. ONE-WAY NON-VACUUM INLET BOUNDARY CONDITION AT ROW Y = 0
-    for (let x = 0; x < W; x++) {
-      const idx = x; // Row Y = 0 cell index
-      const b0 = bedHeight[idx];
-      const h0 = waterDepth[idx];
-      const totalHead = b0 + h0;
-
-      if (etaSea > totalHead) {
-        // Inflow Phase: Incoming wave crest exceeds existing local head
-        const injectedDepth = Math.max(0.005, etaSea - b0);
         waterDepth[idx] = injectedDepth;
+        momentumY[idx] = injectedDepth * 1.2; // Forward surge kinetic velocity (v_y = +1.2 m/s)
+      }
+    } else {
+      // 2. EBB / BACKWASH PHASE (3.5s -> 8.0s): Shut off injection and allow natural backwash drainage
+      for (let x = 0; x < W; x++) {
+        const idx = x; // Row Y = 0 ocean boundary cell
+        const b0 = bedHeight[idx];
+        const h0 = waterDepth[idx];
+        const totalHead = b0 + h0;
 
-        // Shallow-Water Celerity: v_y(x, 0) = sqrt(g * max(0.005, eta_sea - b_0))
-        const celerity = Math.sqrt(g * Math.max(0.005, etaSea - b0));
-        momentumY[idx] = injectedDepth * celerity * 0.35; // Positive inland surge momentum
-      } else {
-        // Outflow Phase: Wave trough or receding backwash
-        // Allow backwash to exit across Y = 0 ONLY if inland head is strictly higher than ambient base tide
-        if (totalHead > etaBase) {
-          const excessHead = totalHead - etaBase;
-          waterDepth[idx] = Math.max(etaBase > b0 ? etaBase - b0 : 0.002, h0 - excessHead * 0.15);
-          momentumY[idx] = Math.min(0.0, momentumY[idx] * 0.85); // Seaward backwash outflow
+        if (totalHead > baseMacroTide) {
+          // Allow backwash outflow to exit grid seaward
+          waterDepth[idx] = Math.max(baseMacroTide > b0 ? baseMacroTide - b0 : 0.0, h0 * 0.75);
+          momentumY[idx] = -waterDepth[idx] * 0.5; // Negative seaward velocity
         } else {
-          // Clamp boundary water depth to ambient sea level to preserve upstream standing water in moats
-          const ambientDepth = Math.max(0.0, etaBase - b0);
-          waterDepth[idx] = ambientDepth;
+          // Clamp boundary to base macro tide
+          waterDepth[idx] = Math.max(0.0, baseMacroTide - b0);
           momentumY[idx] = 0.0;
         }
       }
