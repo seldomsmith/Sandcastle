@@ -12,6 +12,7 @@ import { ToolPalette } from './components/ToolPalette';
 import { useSimulation } from './hooks/useSimulation';
 import { WorkerBridge } from './bridge/WorkerBridge';
 import { BlueprintEncoder } from './utils/BlueprintEncoder';
+import { ToolType } from './types/simulation';
 
 export const App: React.FC = () => {
   const {
@@ -32,6 +33,7 @@ export const App: React.FC = () => {
   } = useSimulation();
 
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1);
 
   const handleShareCastle = () => {
     const bridge = WorkerBridge.getInstance();
@@ -43,6 +45,11 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleSpeedChange = (speed: number) => {
+    setSpeedMultiplier(speed);
+    WorkerBridge.getInstance().updateScenario({ wavePeriod: 5.0 / speed });
+  };
+
   return (
     <main className="w-screen h-screen relative overflow-hidden bg-slate-950">
       {/* 3D WebGL Canvas Viewport */}
@@ -51,6 +58,7 @@ export const App: React.FC = () => {
         brushRadius={brushRadius}
         brushStrength={brushStrength}
         showHeatmap={showHeatmap}
+        isOrbitLocked={activeTool !== ToolType.NONE}
       />
 
       {/* Top Glassmorphic Telemetry HUD */}
@@ -61,6 +69,8 @@ export const App: React.FC = () => {
           lastTickMs={lastTickMs}
           isSharedMemory={isSharedMemory}
           showHeatmap={showHeatmap}
+          speedMultiplier={speedMultiplier}
+          onChangeSpeed={handleSpeedChange}
           onToggleHeatmap={() => setShowHeatmap((prev) => !prev)}
           onShare={handleShareCastle}
           onStartTide={startTide}
@@ -69,7 +79,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Bottom Floating Sculpting Tool Palette */}
+      {/* Left-Side Sculpting Tool Palette */}
       {isInitialized && (
         <ToolPalette
           activeTool={activeTool}

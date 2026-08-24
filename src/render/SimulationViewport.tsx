@@ -19,13 +19,15 @@ interface SimulationViewportProps {
   brushRadius: number;
   brushStrength: number;
   showHeatmap?: boolean;
+  isOrbitLocked?: boolean;
 }
 
 export const SimulationViewport: React.FC<SimulationViewportProps> = ({
   activeTool,
   brushRadius,
   brushStrength,
-  showHeatmap = false
+  showHeatmap = false,
+  isOrbitLocked = false
 }) => {
   const [isBridgeReady, setIsBridgeReady] = useState(false);
 
@@ -80,7 +82,7 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
         />
 
         {/* Multi-Perspective Orbital Camera Rig */}
-        <CameraRig />
+        <CameraRig isOrbitLocked={isOrbitLocked} />
       </Canvas>
     </div>
   );

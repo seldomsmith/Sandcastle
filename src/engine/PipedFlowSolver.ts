@@ -3,7 +3,7 @@
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
  * Computes inter-cell virtual pipe fluxes, volume conservation scaling,
- * 3-sided open boundary absorption sinks, wave generation, and Flather radiation condition.
+ * 3-sided open boundary absorption sinks, wave pulse generation, and Flather radiation condition.
  */
 
 import {
@@ -51,26 +51,25 @@ export class PipedFlowSolver {
     const pipeFactor = (dt * g * PIPE_CROSS_SECTION) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. WAVE INJECTION & FLATHER RADIATION ABSORPTION AT Y = 0
+    // 1. SOLITARY ROLLING WAVE PULSE GENERATION AT Y = 0 (South Ocean Boundary)
     this.wavePhase += (2.0 * Math.PI * dt) / scenario.wavePeriod;
     if (this.wavePhase > 2.0 * Math.PI) {
       this.wavePhase -= 2.0 * Math.PI;
     }
 
-    // Superposed offshore wave spectrum at Y = 0 (South boundary)
     const baseSea = scenario.baseSeaLevel + (frame * scenario.tideRiseRate * dt);
-    const waveAmp = scenario.waveAmplitude;
+    
+    // Wave pulse peaking (solitary wave pulse profile)
+    const wavePulse = Math.pow(Math.max(0, Math.sin(this.wavePhase)), 4.0) * scenario.waveAmplitude * 2.5;
 
     for (let x = 0; x < W; x++) {
       const idx = x; // y = 0
-      const totalElevation = bedHeight[idx] + waterDepth[idx];
-      const targetWaterHeight = Math.max(0.0, baseSea + Math.sin(this.wavePhase + x * 0.15) * waveAmp - bedHeight[idx]);
+      const targetWaterHeight = Math.max(0.0, baseSea + wavePulse - bedHeight[idx]);
       
-      // Flather radiation condition: absorption of outward propagating disturbances
-      const targetVel = Math.sqrt(g * Math.max(MIN_WATER_DEPTH, waterDepth[idx]));
-      const inflowDepth = 0.8 * waterDepth[idx] + 0.2 * targetWaterHeight;
-      waterDepth[idx] = inflowDepth;
-      momentumY[idx] = inflowDepth * targetVel;
+      // Inject forward wave momentum (v = sqrt(g * h)) to propel wave crests inland
+      const celerity = Math.sqrt(g * Math.max(MIN_WATER_DEPTH, targetWaterHeight));
+      waterDepth[idx] = targetWaterHeight;
+      momentumY[idx] = targetWaterHeight * celerity * 1.5; // Positive inland surge momentum
     }
 
     // 2. PIPE FLUX COMPUTATION
@@ -102,6 +101,11 @@ export class PipedFlowSolver {
         let fL = Math.max(0, this.fluxL[idx] + pipeFactor * (totalHead0 - totalHeadL));
         let fT = Math.max(0, this.fluxT[idx] + pipeFactor * (totalHead0 - totalHeadT));
         let fB = Math.max(0, this.fluxB[idx] + pipeFactor * (totalHead0 - totalHeadB));
+
+        // Add forward momentum bias to topward flux (Y direction)
+        if (momentumY[idx] > 0) {
+          fT += momentumY[idx] * pipeFactor * 0.5;
+        }
 
         // Volume scaling to prevent negative water volume
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;

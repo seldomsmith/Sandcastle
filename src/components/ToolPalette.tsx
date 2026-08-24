@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Tool Palette Component
  *
  * Left-side vertical glassmorphic dock allowing the user to select active sculpting tools
- * (Raise Sand, Dig Moat, Compact, Place Stone) and adjust brush radius/strength.
+ * (Raise Sand, Dig Moat, Compact, Place Stone) or toggle Camera Orbit mode.
  */
 
 import React from 'react';
@@ -26,6 +26,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
   onChangeStrength
 }) => {
   const tools = [
+    { type: ToolType.NONE, label: 'Camera Orbit (Pan)', icon: '🎥' },
     { type: ToolType.RAISE, label: 'Shovel (+ Sand)', icon: '⛰️' },
     { type: ToolType.DIG, label: 'Dig (- Moat)', icon: '⛏️' },
     { type: ToolType.COMPACT, label: 'Tamper (Compact)', icon: '🔨' },
@@ -54,7 +55,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
       }}
     >
       <div style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.05em' }}>
-        SCULPTING TOOLS
+        MODE & SCULPTING TOOLS
       </div>
 
       {/* Tool Selection Buttons */}
@@ -87,41 +88,45 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
         })}
       </div>
 
-      <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
+      {activeTool !== ToolType.NONE && (
+        <>
+          <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
 
-      {/* Brush Sliders */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#94a3b8' }}>Radius:</span>
-            <span style={{ fontWeight: 700, color: '#38bdf8' }}>{brushRadius}</span>
-          </div>
-          <input
-            type="range"
-            min={2}
-            max={16}
-            value={brushRadius}
-            onChange={(e) => onChangeRadius(Number(e.target.value))}
-            style={{ width: '100%', accentColor: '#38bdf8', cursor: 'pointer' }}
-          />
-        </div>
+          {/* Brush Sliders */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Radius:</span>
+                <span style={{ fontWeight: 700, color: '#38bdf8' }}>{brushRadius}</span>
+              </div>
+              <input
+                type="range"
+                min={2}
+                max={16}
+                value={brushRadius}
+                onChange={(e) => onChangeRadius(Number(e.target.value))}
+                style={{ width: '100%', accentColor: '#38bdf8', cursor: 'pointer' }}
+              />
+            </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#94a3b8' }}>Strength:</span>
-            <span style={{ fontWeight: 700, color: '#38bdf8' }}>{Math.round(brushStrength * 100)}%</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8' }}>Strength:</span>
+                <span style={{ fontWeight: 700, color: '#38bdf8' }}>{Math.round(brushStrength * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0.01}
+                max={0.1}
+                step={0.01}
+                value={brushStrength}
+                onChange={(e) => onChangeStrength(Number(e.target.value))}
+                style={{ width: '100%', accentColor: '#38bdf8', cursor: 'pointer' }}
+              />
+            </div>
           </div>
-          <input
-            type="range"
-            min={0.01}
-            max={0.1}
-            step={0.01}
-            value={brushStrength}
-            onChange={(e) => onChangeStrength(Number(e.target.value))}
-            style={{ width: '100%', accentColor: '#38bdf8', cursor: 'pointer' }}
-          />
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

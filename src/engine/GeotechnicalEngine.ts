@@ -63,9 +63,9 @@ export class GeotechnicalEngine {
 
       // Update sand saturation level based on water column depth
       if (h > MIN_WATER_DEPTH) {
-        saturation[i] = Math.min(1.0, saturation[i] + DISSOLUTION_RATE * dt);
+        saturation[i] = Math.min(1.0, saturation[i] + DISSOLUTION_RATE * 2.5 * dt);
       } else {
-        saturation[i] = Math.max(0.0, saturation[i] - DISSOLUTION_RATE * 0.5 * dt);
+        saturation[i] = Math.max(0.0, saturation[i] - DISSOLUTION_RATE * 0.2 * dt);
       }
 
       // Calculate hydrodynamic shear stress |u| = sqrt(mx^2 + my^2) / h
@@ -75,11 +75,11 @@ export class GeotechnicalEngine {
         const speed = Math.sqrt(mx * mx + my * my) / h;
 
         // Shear detachment threshold scaled by compaction
-        const effectiveCriticalShear = CRITICAL_SHEAR_DETACHMENT * (1.0 + compaction[i] * 2.0);
+        const effectiveCriticalShear = CRITICAL_SHEAR_DETACHMENT * (1.0 + compaction[i] * 1.5);
 
         if (speed > effectiveCriticalShear) {
           const excessShear = speed - effectiveCriticalShear;
-          const capacity = SEDIMENT_CAPACITY_COEFF * excessShear * h;
+          const capacity = SEDIMENT_CAPACITY_COEFF * excessShear * h * 2.0;
           const erosionAmount = Math.min(bedHeight[i] - BEDROCK_ELEVATION, capacity * dt);
 
           if (erosionAmount > 0) {
@@ -94,7 +94,7 @@ export class GeotechnicalEngine {
       bedHeight[i] = Math.max(BEDROCK_ELEVATION, bedHeight[i] + this.deltaSand[i]);
     }
 
-    // 2. 8-NEIGHBOUR ANGLE-OF-REPOSE SLUMPING
+    // 2. 8-NEIGHBOUR ANGLE-OF-REPOSE SLUMPING (Liquefaction & Collapse)
     this.deltaSand.fill(0.0);
 
     for (let y = 0; y < H; y++) {
@@ -108,11 +108,12 @@ export class GeotechnicalEngine {
         // Dynamic angle of repose based on wetness and compaction
         const sat = saturation[idx];
         const comp = compaction[idx];
+        const h = waterDepth[idx];
 
-        // Linear interpolation of repose angle
+        // Saturated or submerged sand liquefies and slumps rapidly at ~8-12 degrees
         let targetReposeAngle = DRY_ANGLE_OF_REPOSE;
-        if (sat > 0.8) {
-          targetReposeAngle = SATURATED_ANGLE_OF_REPOSE; // Liquefied sand under water
+        if (h > MIN_WATER_DEPTH || sat > 0.6) {
+          targetReposeAngle = SATURATED_ANGLE_OF_REPOSE * 0.7; // ~8 degrees for submerged sand
         } else {
           targetReposeAngle = DRY_ANGLE_OF_REPOSE + comp * (WET_ANGLE_OF_REPOSE - DRY_ANGLE_OF_REPOSE);
         }
@@ -144,7 +145,7 @@ export class GeotechnicalEngine {
 
         // Transfer sand volume down the steepest unstable slope gradient
         if (targetNeighborIdx !== -1 && maxExcessSlope > 0) {
-          const excessHeight = (maxExcessSlope - maxAllowedSlope) * targetNeighborDist * 0.4;
+          const excessHeight = (maxExcessSlope - maxAllowedSlope) * targetNeighborDist * 0.6;
           const transferVolume = Math.min(zb0 - BEDROCK_ELEVATION, excessHeight);
 
           this.deltaSand[idx] -= transferVolume;

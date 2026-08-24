@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - HUD Telemetry Header
  *
  * Top floating bar displaying Keep Integrity, Tide status, simulation frame counter,
- * performance metrics, play/pause controls, stress heatmap toggle, and castle sharing.
+ * performance metrics, play/pause controls, tide speed toggles, stress heatmap, and castle sharing.
  */
 
 import React from 'react';
@@ -13,6 +13,8 @@ interface HUDHeaderProps {
   lastTickMs: number;
   isSharedMemory: boolean;
   showHeatmap: boolean;
+  speedMultiplier: number;
+  onChangeSpeed: (speed: number) => void;
   onToggleHeatmap: () => void;
   onShare: () => void;
   onStartTide: () => void;
@@ -26,12 +28,16 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   lastTickMs,
   isSharedMemory,
   showHeatmap,
+  speedMultiplier,
+  onChangeSpeed,
   onToggleHeatmap,
   onShare,
   onStartTide,
   onPauseTide,
   onReset
 }) => {
+  const speeds = [0.5, 1, 2, 5];
+
   return (
     <div
       style={{
@@ -94,7 +100,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         </div>
       </div>
 
-      {/* Tide Controls, Heatmap & Share Buttons */}
+      {/* Tide Controls, Speed Selector, Heatmap & Share Buttons */}
       <div
         style={{
           display: 'flex',
@@ -109,6 +115,31 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
         }}
       >
+        {/* Speed Selector Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '4px' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', marginRight: '4px' }}>Speed:</span>
+          {speeds.map((s) => (
+            <button
+              key={s}
+              onClick={() => onChangeSpeed(s)}
+              style={{
+                padding: '4px 8px',
+                fontSize: '11px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: speedMultiplier === s ? '1px solid #38bdf8' : '1px solid #334155',
+                backgroundColor: speedMultiplier === s ? '#0284c7' : '#1e293b',
+                color: speedMultiplier === s ? '#ffffff' : '#cbd5e1',
+                cursor: 'pointer'
+              }}
+            >
+              {s}x
+            </button>
+          ))}
+        </div>
+
+        <div style={{ height: '12px', width: '1px', backgroundColor: '#334155', margin: '0 4px' }} />
+
         <button
           onClick={onToggleHeatmap}
           style={{
