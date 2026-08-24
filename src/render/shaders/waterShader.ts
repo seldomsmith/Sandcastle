@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Water Surface Shaders
  *
  * Renders fluid layer with foam lines along shallow sand edges,
- * velocity-based UV advection distortions, specular highlights, and depth transparency.
+ * wave crest whitecaps, specular highlights, and depth transparency.
  */
 
 export const waterVertexShader = /* glsl */ `
@@ -49,7 +49,6 @@ export const waterFragmentShader = /* glsl */ `
   varying vec3 vNormalWS;
 
   void main() {
-    // Discard rendering dry regions where water depth is below threshold
     if (vWaterDepth < 0.0005) {
       discard;
     }
@@ -57,18 +56,23 @@ export const waterFragmentShader = /* glsl */ `
     vec3 lightDir = normalize(uSunDirection);
     vec3 viewDir = normalize(cameraPosition - vWorldPosition);
 
-    // Fresnel Reflection Term
     float fresnel = pow(1.0 - max(0.0, dot(viewDir, vec3(0.0, 1.0, 0.0))), 3.0);
     fresnel = clamp(fresnel, 0.2, 0.8);
 
-    // Color gradient based on water column depth
-    float depthFactor = clamp(vWaterDepth / 0.3, 0.0, 1.0);
+    float depthFactor = clamp(vWaterDepth / 0.35, 0.0, 1.0);
     vec3 waterBase = mix(uWaterColor, uDeepWaterColor, depthFactor);
 
     // Shoreline Edge Foam (where depth is shallow < 0.02m)
     float foamLine = 1.0 - smoothstep(0.001, 0.025, vWaterDepth);
-    vec3 foamColor = vec3(0.95, 0.98, 1.0);
-    vec3 colorWithFoam = mix(waterBase, foamColor, foamLine * 0.7);
+
+    // Turbulent Whitecap Crest Foam Pattern
+    float waveFoamPattern = sin(vUv.y * 120.0 - uTime * 4.0) * cos(vUv.x * 80.0);
+    float whitecapCrest = smoothstep(0.4, 0.8, waveFoamPattern) * smoothstep(0.01, 0.04, vWaterDepth);
+
+    vec3 foamColor = vec3(0.96, 0.98, 1.0);
+    float totalFoam = clamp(foamLine * 0.75 + whitecapCrest * 0.5, 0.0, 0.95);
+
+    vec3 colorWithFoam = mix(waterBase, foamColor, totalFoam);
 
     // Specular Reflection Highlight
     vec3 halfDir = normalize(lightDir + viewDir);
@@ -76,7 +80,7 @@ export const waterFragmentShader = /* glsl */ `
     float specular = pow(NdotH, 64.0) * 0.8;
 
     vec3 finalColor = colorWithFoam + (uSunColor * specular);
-    float alpha = clamp(0.4 + depthFactor * 0.45 + foamLine * 0.3, 0.2, 0.9);
+    float alpha = clamp(0.45 + depthFactor * 0.4 + totalFoam * 0.35, 0.25, 0.95);
 
     gl_FragColor = vec4(finalColor, alpha);
   }

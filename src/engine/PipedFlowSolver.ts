@@ -2,8 +2,8 @@
  * Sandcastle vs. Tide Simulator - Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Features rising base sea level Z_tide(t), deep water accumulation in low-lying moats,
- * thin swash leading edge, and open ocean boundary drainage.
+ * Features shallow-water wave steepening, overtopping spillway acceleration,
+ * dynamic rising base sea level Z_tide(t), and open ocean drainage.
  */
 
 import {
@@ -51,7 +51,7 @@ export class PipedFlowSolver {
     const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.25) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. DYNAMIC BASE SEA-LEVEL RISE Z_tide(t) & SWASH CYCLE
+    // 1. DYNAMIC BASE SEA-LEVEL RISE & SHALLOW WAVE STEEPENING
     const timeSec = tideFrame * dt;
     this.wavePhase += (2.0 * Math.PI * dt) / 2.5; // 2.5s wave pulse cycle
 
@@ -60,32 +60,28 @@ export class PipedFlowSolver {
 
     // Tide progress: 0.0 at T=0s -> 1.0 at T=12s
     const tideProgress = Math.min(1.0, timeSec / 12.0);
-
-    // Rising base sea level elevation (0.02m at start -> 0.42m deep water at peak tide!)
     const baseSeaElevation = 0.02 + tideProgress * 0.40;
 
-    // Shoreline swash reach line moves steadily across grid Y [10..245] over 12 seconds
     const meanShorelineY = Math.floor(10 + tideProgress * 235);
     const currentReachY = Math.min(H - 1, meanShorelineY + (isSwash ? Math.floor(swashPulse * 20) : -Math.floor(Math.abs(swashPulse) * 8)));
 
-    // Inject rising ocean sea level at seaward boundary (Y = 0)
+    // Inject ocean wave pulse at seaward boundary (Y = 0)
     for (let x = 0; x < W; x++) {
       const idx = x; // Y = 0 row (Ocean boundary)
       const oceanDepth = Math.max(0.01, baseSeaElevation - bedHeight[idx] + (isSwash ? swashPulse * 0.04 : 0.0));
 
       waterDepth[idx] = oceanDepth;
       if (isSwash) {
-        momentumY[idx] = oceanDepth * 0.3 * swashPulse; // Positive inland surge momentum
+        momentumY[idx] = oceanDepth * 0.3 * swashPulse;
       } else {
-        momentumY[idx] = -oceanDepth * 0.2 * Math.abs(swashPulse); // Seaward backwash pull
+        momentumY[idx] = -oceanDepth * 0.2 * Math.abs(swashPulse);
       }
     }
 
-    // 2. PIPE FLUX COMPUTATION (Water pools & deepens behind wave front)
+    // 2. PIPE FLUX COMPUTATION WITH SHALLOW STEEPENING & SPILLWAY ACCELERATION
     for (let y = 0; y < H; y++) {
       const rowOffset = y * W;
       
-      // Beyond current wave swash reach: dry sand
       if (y > Math.max(2, currentReachY)) {
         for (let x = 0; x < W; x++) {
           const idx = rowOffset + x;
@@ -123,7 +119,19 @@ export class PipedFlowSolver {
         let fT = Math.max(0, this.fluxT[idx] + pipeFactor * (totalHead0 - totalHeadT));
         let fB = Math.max(0, this.fluxB[idx] + pipeFactor * (totalHead0 - totalHeadB));
 
-        // Swash / Backwash directional momentum bias
+        // Shallow-Water Wave Steepening Math: H_wave steepens as depth decreases (h < 0.08m)
+        if (h0 < 0.08 && isSwash) {
+          const steepeningFactor = Math.pow(0.08 / Math.max(0.005, h0), 0.25);
+          fT *= Math.min(2.0, steepeningFactor);
+        }
+
+        // Seawall Overtopping Spillway Velocity Acceleration: v_spill = sqrt(2g * deltaH)
+        const headDropT = totalHead0 - totalHeadT;
+        if (headDropT > 0.05) {
+          const vSpill = Math.sqrt(2.0 * g * headDropT);
+          fT += vSpill * pipeFactor * 0.4;
+        }
+
         if (momentumY[idx] > 0) {
           fT += momentumY[idx] * pipeFactor * 0.25;
         } else if (momentumY[idx] < 0) {
@@ -180,7 +188,6 @@ export class PipedFlowSolver {
       }
     }
 
-    // Update depths: Water accumulates in low terrain depressions and moats!
     for (let i = 0; i < CELL_COUNT; i++) {
       let hNew = waterDepth[i] + this.deltaDepth[i];
 
