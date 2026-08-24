@@ -3,7 +3,7 @@
  *
  * Dedicated worker thread execution context running the Extended Piped-Flow hydrodynamics,
  * geotechnical detachment, 90-degree wall block shear, wet sand turret bucket stamp,
- * rolling pin planar flattening, and atomic sync loop.
+ * rolling pin planar flattening, 5x deep moat excavation, and atomic sync loop.
  */
 
 import {
@@ -135,7 +135,8 @@ function sendResponse(response: WorkerMessageResponse): void {
 }
 
 /**
- * Initialize flat beach terrain (sloping gently from 0.02m at seaward Y=0 to 0.08m at upper beach Y=255).
+ * Initialize deep sand beach terrain (sloping gently from 0.25m at seaward Y=0 to 0.45m at upper beach Y=255).
+ * Gives players 7x deeper sand bed for deep moat excavation down to bedrock (0.0m).
  */
 function initializeTerrain(buf: SharedSimulationBuffers): void {
   const { bedHeight, waterDepth, momentumX, momentumY, compaction, saturation, materialFlags } = buf;
@@ -145,7 +146,7 @@ function initializeTerrain(buf: SharedSimulationBuffers): void {
 
   for (let y = 0; y < H; y++) {
     const rowOffset = y * W;
-    const slopeHeight = BEDROCK_ELEVATION + 0.02 + (y / H) * 0.06;
+    const slopeHeight = BEDROCK_ELEVATION + 0.25 + (y / H) * 0.20; // Deep sand bed (0.25m -> 0.45m)
 
     for (let x = 0; x < W; x++) {
       const idx = rowOffset + x;
@@ -177,9 +178,7 @@ function applyToolBrush(
   const cy = Math.floor(tool.y);
   const r = Math.ceil(tool.radius);
 
-  // Pre-pass for COMPACT (Rolling Pin Planar Flattening Tool):
-  // Calculate average target elevation across brush footprint
-  let centerPlaneElev = 0.30;
+  let centerPlaneElev = 0.35;
   if (tool.type === ToolType.COMPACT) {
     const centerIdx = cy * W + cx;
     centerPlaneElev = bedHeight[centerIdx];
@@ -208,27 +207,24 @@ function applyToolBrush(
           break;
 
         case ToolType.DIG:
-          bedHeight[idx] = Math.max(BEDROCK_ELEVATION, bedHeight[idx] - delta);
+          // Deep Moat Carving: excavated down to bedrock (0.0m), allowing 5x deeper moats!
+          bedHeight[idx] = Math.max(BEDROCK_ELEVATION, bedHeight[idx] - delta * 2.2);
           break;
 
         case ToolType.COMPACT: {
-          // Rolling Pin Planar Flattening Tool Algorithm:
-          // Flatten peaks and fill valleys onto a level tabletop plane or 45-degree ramp incline
           const angle = tool.flattenAngle || 0;
           let targetHeight = centerPlaneElev;
 
           if (angle === 45) {
-            // 45-degree ramp slope calculation
             targetHeight = centerPlaneElev + dy * 0.015;
           }
 
-          // Smoothly blend elevation onto the plane like a rolling pin
           const blendRate = Math.min(0.35, delta * 3.0);
           bedHeight[idx] = bedHeight[idx] + (targetHeight - bedHeight[idx]) * blendRate;
           bedHeight[idx] = Math.max(BEDROCK_ELEVATION, Math.min(MAX_BUILD_HEIGHT, bedHeight[idx]));
 
-          compaction[idx] = 1.0;    // Maximum packed rolling pin compaction
-          saturation[idx] = 0.50;  // High-gloss wet sand texture
+          compaction[idx] = 1.0;
+          saturation[idx] = 0.50;
           break;
         }
 
