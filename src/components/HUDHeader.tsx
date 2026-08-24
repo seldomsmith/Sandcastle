@@ -1,8 +1,8 @@
 /**
- * Sandcastle vs. Tide Simulator - HUD Telemetry Header
+ * Sandcastle vs. Tide Simulator - Warm Technical Neo-Brutalist HUD Header
  *
- * Top floating bar displaying Keep Integrity Gauge, Beach Size Selector, Lighting Presets, Scenario Selector,
- * performance metrics, play/pause controls, tide speed toggles, stress heatmap, contour isolines, and castle sharing.
+ * Warm Technical Neo-Brutalist design language:
+ * Background #F3F0E6, Borders 1px solid #111111, Radius 0px, Active #111111, Zero Emojis.
  */
 
 import React from 'react';
@@ -64,10 +64,10 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   };
 
   const beachPresets = [
-    { id: BeachDomainPreset.STANDARD_256, name: 'Standard Beach (6.4m × 6.4m)', icon: '🏖️' },
-    { id: BeachDomainPreset.WIDE_384, name: 'Wide Beach (9.6m × 6.4m)', icon: '↔️' },
-    { id: BeachDomainPreset.LONG_384, name: 'Long Beach (6.4m × 9.6m)', icon: '↕️' },
-    { id: BeachDomainPreset.MEGA_512, name: 'Mega Coast (12.8m × 12.8m)', icon: '🌋' }
+    { id: BeachDomainPreset.STANDARD_256, name: 'Standard (6.4m × 6.4m)' },
+    { id: BeachDomainPreset.WIDE_384, name: 'Wide (9.6m × 6.4m)' },
+    { id: BeachDomainPreset.LONG_384, name: 'Long (6.4m × 9.6m)' },
+    { id: BeachDomainPreset.MEGA_512, name: 'Mega (12.8m × 12.8m)' }
   ];
 
   return (
@@ -82,42 +82,39 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         justify: 'space-between',
         alignItems: 'center',
         pointerEvents: 'none',
-        fontFamily: 'sans-serif'
+        fontFamily: 'Inter, -apple-system, sans-serif'
       }}
     >
-      {/* VisionOS-Style Frosted Glass Telemetry Header */}
+      {/* Warm Technical Neo-Brutalist Card Container */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '14px',
-          backgroundColor: 'rgba(15, 23, 42, 0.88)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          padding: '10px 18px',
-          borderRadius: '16px',
-          fontSize: '12px',
-          color: '#cbd5e1',
-          pointerEvents: 'auto',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)'
+          backgroundColor: '#F3F0E6',
+          border: '1px solid #111111',
+          borderRadius: '0px',
+          padding: '8px 16px',
+          fontSize: '11px',
+          color: '#111111',
+          pointerEvents: 'auto'
         }}
       >
-        {/* Prominent Keep Health Bar */}
+        {/* Keep Health Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '16px' }}>🏰</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700 }}>
-              <span style={{ color: '#94a3b8' }}>KEEP INTEGRITY:</span>
-              <span style={{ color: keepHealthPercent > 50 ? '#34d399' : '#f43f5e', marginLeft: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <span style={{ color: '#666660' }}>KEEP INTEGRITY</span>
+              <span style={{ color: '#111111', marginLeft: '8px', fontWeight: 800 }}>
                 {Math.round(keepHealthPercent)}%
               </span>
             </div>
-            <div style={{ width: '110px', height: '6px', backgroundColor: '#334155', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ width: '100px', height: '6px', backgroundColor: '#DCD7C9', border: '1px solid #111111', borderRadius: '0px', overflow: 'hidden' }}>
               <div
                 style={{
                   width: `${Math.max(0, Math.min(100, keepHealthPercent))}%`,
                   height: '100%',
-                  backgroundColor: keepHealthPercent > 50 ? '#34d399' : '#f43f5e',
+                  backgroundColor: '#111111',
                   transition: 'width 0.3s ease'
                 }}
               />
@@ -125,39 +122,39 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
           </div>
         </div>
 
-        <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
+        <div style={{ height: '20px', width: '1px', backgroundColor: '#111111' }} />
 
-        {/* Dynamic Beach Domain Size Selector */}
+        {/* Beach Size Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}>BEACH SIZE:</span>
+          <span style={{ color: '#666660', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em' }}>BEACH SIZE</span>
           <select
             value={activeBeachPreset}
             onChange={(e) => onChangeBeachPreset(e.target.value as BeachDomainPreset)}
             style={{
-              backgroundColor: '#1e293b',
-              color: '#38bdf8',
+              backgroundColor: '#F3F0E6',
+              color: '#111111',
               fontSize: '11px',
               fontWeight: 700,
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              padding: '4px 8px',
+              border: '1px solid #111111',
+              borderRadius: '0px',
+              padding: '3px 8px',
               cursor: 'pointer',
               outline: 'none'
             }}
           >
             {beachPresets.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.icon} {b.name}
+                {b.name}
               </option>
             ))}
           </select>
         </div>
 
-        <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
+        <div style={{ height: '20px', width: '1px', backgroundColor: '#111111' }} />
 
-        {/* Dynamic Time-of-Day Lighting Selector */}
+        {/* Lighting Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}>LIGHTING:</span>
+          <span style={{ color: '#666660', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em' }}>LIGHTING</span>
           <select
             value={activeLighting.id}
             onChange={(e) => {
@@ -165,40 +162,40 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
               if (selected) onChangeLighting(selected);
             }}
             style={{
-              backgroundColor: '#1e293b',
-              color: '#38bdf8',
+              backgroundColor: '#F3F0E6',
+              color: '#111111',
               fontSize: '11px',
               fontWeight: 700,
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              padding: '4px 8px',
+              border: '1px solid #111111',
+              borderRadius: '0px',
+              padding: '3px 8px',
               cursor: 'pointer',
               outline: 'none'
             }}
           >
             {LIGHTING_PRESETS.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.icon} {p.name}
+                {p.name}
               </option>
             ))}
           </select>
         </div>
 
-        <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
+        <div style={{ height: '20px', width: '1px', backgroundColor: '#111111' }} />
 
-        {/* Coastal Scenario Selector */}
+        {/* Scenario Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}>SCENARIO:</span>
+          <span style={{ color: '#666660', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em' }}>SCENARIO</span>
           <select
             onChange={(e) => handleScenarioChange(e.target.value)}
             style={{
-              backgroundColor: '#1e293b',
-              color: '#38bdf8',
+              backgroundColor: '#F3F0E6',
+              color: '#111111',
               fontSize: '11px',
               fontWeight: 700,
-              border: '1px solid #334155',
-              borderRadius: '8px',
-              padding: '4px 8px',
+              border: '1px solid #111111',
+              borderRadius: '0px',
+              padding: '3px 8px',
               cursor: 'pointer',
               outline: 'none'
             }}
@@ -212,35 +209,33 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         </div>
       </div>
 
-      {/* Tide Controls & Toggles */}
+      {/* Tide Controls & Toggles Bar */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          backgroundColor: 'rgba(15, 23, 42, 0.88)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          padding: '10px 18px',
-          borderRadius: '16px',
-          pointerEvents: 'auto',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)'
+          backgroundColor: '#F3F0E6',
+          border: '1px solid #111111',
+          borderRadius: '0px',
+          padding: '8px 16px',
+          pointerEvents: 'auto'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '4px' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', marginRight: '4px' }}>Speed:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <span style={{ fontSize: '10px', color: '#666660', fontWeight: 700, marginRight: '4px', letterSpacing: '0.05em' }}>SPEED</span>
           {speeds.map((s) => (
             <button
               key={s}
               onClick={() => onChangeSpeed(s)}
               style={{
-                padding: '4px 8px',
-                fontSize: '11px',
+                padding: '3px 7px',
+                fontSize: '10px',
                 fontWeight: 700,
-                borderRadius: '6px',
-                border: speedMultiplier === s ? '1px solid #38bdf8' : '1px solid #334155',
-                backgroundColor: speedMultiplier === s ? '#0284c7' : '#1e293b',
-                color: speedMultiplier === s ? '#ffffff' : '#cbd5e1',
+                borderRadius: '0px',
+                border: '1px solid #111111',
+                backgroundColor: speedMultiplier === s ? '#111111' : '#F3F0E6',
+                color: speedMultiplier === s ? '#FFFFFF' : '#111111',
                 cursor: 'pointer'
               }}
             >
@@ -249,106 +244,106 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
           ))}
         </div>
 
-        <div style={{ height: '16px', width: '1px', backgroundColor: '#334155', margin: '0 4px' }} />
+        <div style={{ height: '16px', width: '1px', backgroundColor: '#111111', margin: '0 2px' }} />
 
         <button
           onClick={onToggleContours}
           style={{
-            padding: '6px 12px',
-            fontSize: '11px',
+            padding: '4px 10px',
+            fontSize: '10px',
             fontWeight: 700,
-            borderRadius: '8px',
+            borderRadius: '0px',
             cursor: 'pointer',
-            border: showContours ? '1px solid #38bdf8' : '1px solid #334155',
-            backgroundColor: showContours ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
-            color: showContours ? '#38bdf8' : '#cbd5e1'
+            border: '1px solid #111111',
+            backgroundColor: showContours ? '#111111' : '#F3F0E6',
+            color: showContours ? '#FFFFFF' : '#111111'
           }}
         >
-          {showContours ? '📐 Contours ON' : '📐 Contours OFF'}
+          {showContours ? 'CONTOURS ON' : 'CONTOURS OFF'}
         </button>
 
         <button
           onClick={onToggleHeatmap}
           style={{
-            padding: '6px 12px',
-            fontSize: '11px',
+            padding: '4px 10px',
+            fontSize: '10px',
             fontWeight: 700,
-            borderRadius: '8px',
+            borderRadius: '0px',
             cursor: 'pointer',
-            border: showHeatmap ? '1px solid rgba(244, 63, 94, 0.5)' : '1px solid #334155',
-            backgroundColor: showHeatmap ? 'rgba(244, 63, 94, 0.2)' : '#1e293b',
-            color: showHeatmap ? '#fda4af' : '#cbd5e1'
+            border: '1px solid #111111',
+            backgroundColor: showHeatmap ? '#111111' : '#F3F0E6',
+            color: showHeatmap ? '#FFFFFF' : '#111111'
           }}
         >
-          {showHeatmap ? '🔥 Heatmap ON' : '🌡️ Heatmap OFF'}
+          {showHeatmap ? 'HEATMAP ON' : 'HEATMAP OFF'}
         </button>
 
         <button
           onClick={onShare}
           style={{
-            padding: '6px 12px',
-            backgroundColor: '#1e293b',
-            color: '#7dd3fc',
-            fontSize: '11px',
+            padding: '4px 10px',
+            backgroundColor: '#F3F0E6',
+            color: '#111111',
+            fontSize: '10px',
             fontWeight: 700,
-            borderRadius: '8px',
-            border: '1px solid #334155',
+            borderRadius: '0px',
+            border: '1px solid #111111',
             cursor: 'pointer'
           }}
         >
-          🔗 Share Castle
+          SHARE CASTLE
         </button>
 
-        <div style={{ height: '16px', width: '1px', backgroundColor: '#334155', margin: '0 4px' }} />
+        <div style={{ height: '16px', width: '1px', backgroundColor: '#111111', margin: '0 2px' }} />
 
         {isTideActive ? (
           <button
             onClick={onPauseTide}
             style={{
-              padding: '6px 14px',
-              backgroundColor: '#f59e0b',
-              color: '#020617',
+              padding: '4px 12px',
+              backgroundColor: '#111111',
+              color: '#FFFFFF',
               fontWeight: 700,
-              fontSize: '11px',
-              borderRadius: '8px',
-              border: 'none',
+              fontSize: '10px',
+              borderRadius: '0px',
+              border: '1px solid #111111',
               cursor: 'pointer'
             }}
           >
-            Pause Tide
+            PAUSE TIDE
           </button>
         ) : (
           <button
             onClick={onStartTide}
             style={{
-              padding: '6px 14px',
-              backgroundColor: '#e11d48',
-              color: '#ffffff',
+              padding: '4px 12px',
+              backgroundColor: '#111111',
+              color: '#FFFFFF',
               fontWeight: 700,
-              fontSize: '11px',
-              borderRadius: '8px',
-              border: 'none',
+              fontSize: '10px',
+              borderRadius: '0px',
+              border: '1px solid #111111',
               cursor: 'pointer'
             }}
           >
-            Start Tide Surge
+            START TIDE SURGE
           </button>
         )}
 
         <button
           onClick={onReset}
           style={{
-            padding: '6px 14px',
-            backgroundColor: '#1e293b',
-            color: '#cbd5e1',
-            fontWeight: 600,
-            fontSize: '11px',
-            borderRadius: '8px',
-            border: '1px solid #334155',
+            padding: '4px 10px',
+            backgroundColor: '#F3F0E6',
+            color: '#111111',
+            fontWeight: 700,
+            fontSize: '10px',
+            borderRadius: '0px',
+            border: '1px solid #111111',
             cursor: 'pointer'
           }}
         >
-          Reset Map
+          RESET MAP
         </button>
       </div>
     </div>

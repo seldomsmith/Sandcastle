@@ -1,8 +1,8 @@
 /**
- * Sandcastle vs. Tide Simulator - Post-Mortem Autopsy Diagnostic Modal
+ * Sandcastle vs. Tide Simulator - Warm Technical Neo-Brutalist Post-Mortem Autopsy Modal
  *
- * Displays end-of-simulation survival statistics, peak wave energy dissipated,
- * sand volume mass, compaction grade, defense score, and primary failure cause.
+ * Warm Technical Neo-Brutalist design language:
+ * Background #F3F0E6, Borders 1px solid #111111, Radius 0px, Active #111111, Zero Emojis.
  */
 
 import React from 'react';
@@ -12,9 +12,6 @@ interface PostMortemModalProps {
   survivalTimeSec: number;
   keepHealthPercent: number;
   failureCause: string;
-  energyDissipatedJoules?: number;
-  sandMassVolume?: number;
-  compactionGradePercent?: number;
   onRestart: () => void;
 }
 
@@ -23,124 +20,106 @@ export const PostMortemModal: React.FC<PostMortemModalProps> = ({
   survivalTimeSec,
   keepHealthPercent,
   failureCause,
-  energyDissipatedJoules = 4820,
-  sandMassVolume = 14.2,
-  compactionGradePercent = 88,
   onRestart
 }) => {
   if (!isOpen) return null;
+
+  const energyDissipatedJoules = Math.round(survivalTimeSec * 14.5 * 10) / 10;
+  const sandVolumeLostM3 = Math.round((1.0 - keepHealthPercent / 100) * 0.42 * 100) / 100;
 
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 10000,
-        backgroundColor: 'rgba(2, 6, 23, 0.8)',
-        backdropFilter: 'blur(16px)',
+        zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         justify: 'center',
-        fontFamily: 'sans-serif'
+        backgroundColor: 'rgba(17, 17, 17, 0.6)',
+        fontFamily: 'Inter, -apple-system, sans-serif'
       }}
     >
       <div
         style={{
-          width: '460px',
-          backgroundColor: '#0f172a',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          borderRadius: '24px',
-          padding: '28px',
-          color: '#f8fafc',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
+          backgroundColor: '#F3F0E6',
+          border: '1px solid #111111',
+          borderRadius: '0px',
+          padding: '24px',
+          width: '420px',
+          color: '#111111',
           display: 'flex',
           flexDirection: 'column',
-          gap: '18px'
+          gap: '16px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '36px' }}>🌊</span>
-          <div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#f43f5e', letterSpacing: '0.02em' }}>
-              SANDCASTLE AUTOPSY REPORT
-            </div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-              Diagnostic Structural Evaluation & Wave Energy Autopsy
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ fontSize: '10px', fontWeight: 700, color: '#666660', letterSpacing: '0.08em' }}>
+            POST-MORTEM AUTOPSY DIAGNOSTIC
+          </span>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, textTransform: 'uppercase' }}>
+            KEEP BREACH DETECTED
+          </h2>
+        </div>
+
+        <div style={{ height: '1px', backgroundColor: '#111111' }} />
+
+        {/* Core Metrics Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ border: '1px solid #111111', padding: '10px', backgroundColor: '#F3F0E6' }}>
+            <span style={{ fontSize: '9px', fontWeight: 700, color: '#666660', letterSpacing: '0.05em' }}>
+              SURVIVAL TIME
+            </span>
+            <div style={{ fontSize: '18px', fontWeight: 800 }}>{Math.round(survivalTimeSec)}s</div>
+          </div>
+
+          <div style={{ border: '1px solid #111111', padding: '10px', backgroundColor: '#F3F0E6' }}>
+            <span style={{ fontSize: '9px', fontWeight: 700, color: '#666660', letterSpacing: '0.05em' }}>
+              ENERGY DISSIPATED
+            </span>
+            <div style={{ fontSize: '18px', fontWeight: 800 }}>{energyDissipatedJoules}kJ</div>
+          </div>
+
+          <div style={{ border: '1px solid #111111', padding: '10px', backgroundColor: '#F3F0E6' }}>
+            <span style={{ fontSize: '9px', fontWeight: 700, color: '#666660', letterSpacing: '0.05em' }}>
+              SAND MASS ERODED
+            </span>
+            <div style={{ fontSize: '18px', fontWeight: 800 }}>{sandVolumeLostM3}m³</div>
+          </div>
+
+          <div style={{ border: '1px solid #111111', padding: '10px', backgroundColor: '#F3F0E6' }}>
+            <span style={{ fontSize: '9px', fontWeight: 700, color: '#666660', letterSpacing: '0.05em' }}>
+              FINAL INTEGRITY
+            </span>
+            <div style={{ fontSize: '18px', fontWeight: 800 }}>{Math.round(keepHealthPercent)}%</div>
           </div>
         </div>
 
-        <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
-
-        {/* Primary Metrics 2x2 Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <div style={{ backgroundColor: '#1e293b', padding: '12px', borderRadius: '12px' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>SURVIVAL TIME</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#38bdf8' }}>
-              {survivalTimeSec.toFixed(1)}s
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#1e293b', padding: '12px', borderRadius: '12px' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>KEEP INTEGRITY</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: keepHealthPercent > 50 ? '#34d399' : '#f43f5e' }}>
-              {Math.round(keepHealthPercent)}%
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#1e293b', padding: '12px', borderRadius: '12px' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>ENERGY DISSIPATED</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#fbbf24' }}>
-              {energyDissipatedJoules.toLocaleString()} J
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#1e293b', padding: '12px', borderRadius: '12px' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>SAND VOLUME</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#a7f3d0' }}>
-              {sandMassVolume.toFixed(1)} m³
-            </div>
-          </div>
+        {/* Primary Failure Cause Card */}
+        <div style={{ border: '1px solid #111111', padding: '10px', backgroundColor: '#F3F0E6' }}>
+          <span style={{ fontSize: '9px', fontWeight: 700, color: '#666660', letterSpacing: '0.05em' }}>
+            PRIMARY FAILURE CAUSE
+          </span>
+          <div style={{ fontSize: '11px', fontWeight: 700, marginTop: '2px' }}>{failureCause}</div>
         </div>
 
-        {/* Failure Cause Diagnostic */}
-        <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', padding: '14px', borderRadius: '12px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#fda4af', marginBottom: '4px' }}>
-            PRIMARY FAILURE DIAGNOSIS
-          </div>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff', lineHeight: '1.4' }}>
-            {failureCause}
-          </div>
-        </div>
-
-        {/* Defense Rating Score */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', backgroundColor: '#1e293b', padding: '12px 16px', borderRadius: '12px' }}>
-          <div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>COMPACTION GRADE</div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#38bdf8' }}>{compactionGradePercent}% Efficiency</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>DEFENSE RATING</div>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: '#34d399' }}>GRADE A-</div>
-          </div>
-        </div>
-
-        {/* Action Button */}
+        {/* Restart Action Button */}
         <button
           onClick={onRestart}
           style={{
-            padding: '14px',
-            backgroundColor: '#0284c7',
-            color: '#ffffff',
+            width: '100%',
+            padding: '10px',
+            backgroundColor: '#111111',
+            color: '#FFFFFF',
             fontWeight: 800,
-            fontSize: '13px',
-            borderRadius: '12px',
-            border: 'none',
+            fontSize: '11px',
+            borderRadius: '0px',
+            border: '1px solid #111111',
             cursor: 'pointer',
-            boxShadow: '0 10px 15px -3px rgba(2, 132, 199, 0.4)'
+            letterSpacing: '0.05em'
           }}
         >
-          🔄 Rebuild Fortress
+          REBUILD FORTRESS (RESET MAP)
         </button>
       </div>
     </div>

@@ -5,12 +5,9 @@
  * for Golden Hour Sunset, High Noon Tropical, and Night Tide environment modes.
  */
 
-import * as THREE from 'three';
-
 export interface LightingPreset {
   id: string;
   name: string;
-  icon: string;
   sunPosition: [number, number, number];
   sunColor: string;
   ambientColor: string;
@@ -24,7 +21,6 @@ export const LIGHTING_PRESETS: LightingPreset[] = [
   {
     id: 'high_noon',
     name: 'High Noon Tropical',
-    icon: '☀️',
     sunPosition: [2, 14, 4],
     sunColor: '#fffbeb',
     ambientColor: '#334155',
@@ -36,7 +32,6 @@ export const LIGHTING_PRESETS: LightingPreset[] = [
   {
     id: 'golden_hour',
     name: 'Golden Hour Sunset',
-    icon: '🌅',
     sunPosition: [12, 3, 6],
     sunColor: '#f97316',
     ambientColor: '#4c1d95',
@@ -48,7 +43,6 @@ export const LIGHTING_PRESETS: LightingPreset[] = [
   {
     id: 'night_tide',
     name: 'Night Tide (Bioluminescent)',
-    icon: '🌕',
     sunPosition: [-4, 10, -5],
     sunColor: '#38bdf8',
     ambientColor: '#090d16',

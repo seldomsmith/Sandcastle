@@ -1,8 +1,8 @@
 /**
- * Sandcastle vs. Tide Simulator - 3D Hover Telemetry Reticle HUD
+ * Sandcastle vs. Tide Simulator - Warm Technical Neo-Brutalist 3D Hover Telemetry Reticle HUD
  *
- * Floating 3D reticle tracking mouse cursor position over sand terrain,
- * reading SharedArrayBuffer data to show live Water Depth (cm), Sand Elevation (cm), and Velocity (m/s).
+ * Warm Technical Neo-Brutalist design language:
+ * Background #F3F0E6, Borders 1px solid #111111, Radius 0px, Active #111111, Zero Emojis.
  */
 
 import React, { useState, useMemo } from 'react';
@@ -61,7 +61,6 @@ export const TelemetryReticle: React.FC = () => {
         const newh = Math.round(h * 100 * 10) / 10;
         const newvel = Math.round(vel * 100) / 100;
 
-        // Avoid unnecessary React state churn on identical values
         if (
           !reticleData.isVisible ||
           reticleData.sandElevationCm !== newb ||
@@ -89,34 +88,32 @@ export const TelemetryReticle: React.FC = () => {
       <Html center pointerEvents="none">
         <div
           style={{
-            backgroundColor: 'rgba(15, 23, 42, 0.92)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.4)',
-            borderRadius: '10px',
-            padding: '6px 10px',
-            color: '#f8fafc',
-            fontFamily: 'sans-serif',
+            backgroundColor: '#F3F0E6',
+            border: '1px solid #111111',
+            borderRadius: '0px',
+            padding: '5px 10px',
+            color: '#111111',
+            fontFamily: 'Inter, -apple-system, sans-serif',
             fontSize: '10px',
             whiteSpace: 'nowrap',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)',
             display: 'flex',
             gap: '8px',
             alignItems: 'center'
           }}
         >
           <div>
-            <span style={{ color: '#94a3b8' }}>Elev:</span>{' '}
-            <span style={{ color: '#fbbf24', fontWeight: 700 }}>{reticleData.sandElevationCm} cm</span>
+            <span style={{ color: '#666660', fontWeight: 700 }}>ELEV:</span>{' '}
+            <span style={{ fontWeight: 800 }}>{reticleData.sandElevationCm}cm</span>
           </div>
-          <div style={{ height: '10px', width: '1px', backgroundColor: '#334155' }} />
+          <div style={{ height: '10px', width: '1px', backgroundColor: '#111111' }} />
           <div>
-            <span style={{ color: '#94a3b8' }}>Water:</span>{' '}
-            <span style={{ color: '#38bdf8', fontWeight: 700 }}>{reticleData.waterDepthCm} cm</span>
+            <span style={{ color: '#666660', fontWeight: 700 }}>WATER:</span>{' '}
+            <span style={{ fontWeight: 800 }}>{reticleData.waterDepthCm}cm</span>
           </div>
-          <div style={{ height: '10px', width: '1px', backgroundColor: '#334155' }} />
+          <div style={{ height: '10px', width: '1px', backgroundColor: '#111111' }} />
           <div>
-            <span style={{ color: '#94a3b8' }}>Vel:</span>{' '}
-            <span style={{ color: '#34d399', fontWeight: 700 }}>{reticleData.velocityMs} m/s</span>
+            <span style={{ color: '#666660', fontWeight: 700 }}>VEL:</span>{' '}
+            <span style={{ fontWeight: 800 }}>{reticleData.velocityMs}m/s</span>
           </div>
         </div>
       </Html>
