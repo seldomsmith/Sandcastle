@@ -21,11 +21,11 @@ export const waterVertexShader = /* glsl */ `
     float depth = texture2D(uWaterDepthMap, uv).r;
     float bed = texture2D(uBedHeightMap, uv).r;
 
-    // Clamp water depth to paper-thin coastal swash sheet (3cm max depth above sand)
-    float clampedDepth = clamp(depth, 0.0, 0.035);
+    // Smooth emergent water surface elevation (supports deep standing moat water without spire artifacts)
+    float smoothDepth = max(0.0, depth);
 
-    vWaterDepth = clampedDepth;
-    vTotalElevation = bed + clampedDepth;
+    vWaterDepth = smoothDepth;
+    vTotalElevation = bed + smoothDepth;
 
     // Displace vertex smoothly to total water surface height
     vec3 displacedPos = position + vec3(0.0, 0.0, vTotalElevation);
@@ -62,7 +62,7 @@ export const waterFragmentShader = /* glsl */ `
     float fresnel = pow(1.0 - max(0.0, dot(viewDir, vec3(0.0, 1.0, 0.0))), 3.0);
     fresnel = clamp(fresnel, 0.2, 0.8);
 
-    float depthFactor = clamp(vWaterDepth / 0.035, 0.0, 1.0);
+    float depthFactor = clamp(vWaterDepth / 0.35, 0.0, 1.0);
     vec3 waterBase = mix(uWaterColor, uDeepWaterColor, depthFactor);
 
     // Shoreline Edge Foam (where depth is shallow < 0.015m)

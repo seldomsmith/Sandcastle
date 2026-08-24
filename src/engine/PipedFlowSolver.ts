@@ -1,9 +1,10 @@
 /**
- * Sandcastle vs. Tide Simulator - Piped-Flow Hydrodynamic Solver
+ * Sandcastle vs. Tide Simulator - Extended Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Integrates WaveGenerator for Three-Tier Tide equations, deep water accumulation (0.45m),
- * Flather radiation outflow, and shallow celerity coupling v_in = sqrt(g * h).
+ * Integrates WaveGenerator for One-Way Non-Vacuum Inlet boundary conditions,
+ * dynamic Manning wet-bed friction scaling (C_f = 0.06 -> 0.012), and 100% emergent
+ * advective momentum transfer across the full 256-cell domain.
  */
 
 import {
@@ -40,29 +41,25 @@ export class PipedFlowSolver {
   }
 
   /**
-   * Main hydrodynamic tick step.
+   * Primary hydrodynamic tick execution step.
    * `tideFrame` is the active elapsed frame counter during tide surge.
    */
   public step(buffers: SharedSimulationBuffers, scenario: ScenarioConfig, tideFrame: number): void {
-    const { bedHeight, waterDepth, momentumX, momentumY } = buffers;
+    const { bedHeight, waterDepth, momentumX, momentumY, saturation } = buffers;
 
     const W = GRID_WIDTH;
     const H = GRID_HEIGHT;
     const g = GRAVITY;
     const dt = DT;
     const dx = CELL_SIZE;
-    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.2) / VIRTUAL_PIPE_LENGTH;
+    const basePipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.22) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
-    const timeSec = tideFrame * dt;
+    const simTime = tideFrame * dt;
 
-    // 1. THREE-TIER TIDE & FLATHER RADIATION BOUNDARY UPDATE (Row Y = 0)
-    this.waveGenerator.updateBoundary(buffers, scenario, timeSec);
+    // 1. ONE-WAY NON-VACUUM INLET BOUNDARY UPDATE AT ROW Y = 0
+    this.waveGenerator.updateBoundary(buffers, scenario, simTime);
 
-    // Calculate active swash reach horizon based on simTime
-    const waveIndex = Math.floor(timeSec / 4.0);
-    const waveStepReachY = Math.min(H - 1, 15 + waveIndex * 16);
-
-    // 2. PIPE FLUX COMPUTATION (Water accumulates & pools behind wave front up to 0.45m!)
+    // 2. PIPE FLUX COMPUTATION WITH DYNAMIC MANNING WET-BED FRICTION SCALING
     for (let y = 0; y < H; y++) {
       const rowOffset = y * W;
 
@@ -86,20 +83,33 @@ export class PipedFlowSolver {
         const totalHeadT = (y < H - 1) ? bedHeight[idx + W] + waterDepth[idx + W] : totalHead0;
         const totalHeadB = (y > 0) ? bedHeight[idx - W] + waterDepth[idx - W] : totalHead0;
 
-        let fR = Math.max(0, this.fluxR[idx] + pipeFactor * (totalHead0 - totalHeadR));
-        let fL = Math.max(0, this.fluxL[idx] + pipeFactor * (totalHead0 - totalHeadL));
-        let fT = Math.max(0, this.fluxT[idx] + pipeFactor * (totalHead0 - totalHeadT));
-        let fB = Math.max(0, this.fluxB[idx] + pipeFactor * (totalHead0 - totalHeadB));
+        // Dynamic Manning Wet-Bed Friction Scaling (C_f):
+        // Dry sand (S < 0.2): High friction (C_f = 0.06) for initial porous resistance.
+        // Saturated / Wet sand (S > 0.7 or h > 0.005m): Low friction (C_f = 0.012) allowing
+        // thin-sheet wave momentum to propagate across full 256-cell domain without stalling.
+        const sat = saturation[idx];
+        const isWet = sat > 0.7 || h0 > 0.005;
+        const frictionCoeff = isWet ? 0.012 : 0.06;
+        const frictionDamping = Math.max(0.2, 1.0 - frictionCoeff * dt * 10.0);
 
-        // Prevent artificial flow beyond active wave reach front
-        if (y > waveStepReachY) {
-          fT = 0;
+        const localPipeFactor = basePipeFactor * frictionDamping;
+
+        let fR = Math.max(0, this.fluxR[idx] + localPipeFactor * (totalHead0 - totalHeadR));
+        let fL = Math.max(0, this.fluxL[idx] + localPipeFactor * (totalHead0 - totalHeadL));
+        let fT = Math.max(0, this.fluxT[idx] + localPipeFactor * (totalHead0 - totalHeadT));
+        let fB = Math.max(0, this.fluxB[idx] + localPipeFactor * (totalHead0 - totalHeadB));
+
+        // Advective momentum coupling
+        if (momentumY[idx] > 0) {
+          fT += momentumY[idx] * localPipeFactor * 0.3;
+        } else if (momentumY[idx] < 0) {
+          fB += Math.abs(momentumY[idx]) * localPipeFactor * 0.35;
         }
 
-        if (momentumY[idx] > 0) {
-          fT += momentumY[idx] * pipeFactor * 0.25;
-        } else if (momentumY[idx] < 0) {
-          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.3;
+        if (momentumX[idx] > 0) {
+          fR += momentumX[idx] * localPipeFactor * 0.3;
+        } else if (momentumX[idx] < 0) {
+          fL += Math.abs(momentumX[idx]) * localPipeFactor * 0.3;
         }
 
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;
@@ -120,7 +130,7 @@ export class PipedFlowSolver {
       }
     }
 
-    // 3. WATER DEPTH & MOMENTUM UPDATE WITH 0.45M DEEP OCEAN SUPPORT
+    // 3. WATER DEPTH & MOMENTUM UPDATE (100% Emergent Hydrodynamics)
     this.deltaDepth.fill(0);
 
     for (let y = 0; y < H; y++) {
@@ -154,11 +164,6 @@ export class PipedFlowSolver {
 
     for (let i = 0; i < CELL_COUNT; i++) {
       let hNew = waterDepth[i] + this.deltaDepth[i];
-
-      // Smooth depth clamp (0.45m max standing ocean water)
-      if (hNew > 0.45) {
-        hNew = 0.45;
-      }
 
       if (hNew < MIN_WATER_DEPTH) {
         hNew = 0.0;
