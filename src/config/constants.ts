@@ -1,15 +1,28 @@
 /**
  * Sandcastle vs. Tide Simulator - Physical & Numerical Constants
  *
- * Defines grid dimensions, fixed physics timestep, geotechnical limits,
- * hydrodynamic coefficients, and SharedArrayBuffer memory layout offsets.
+ * Defines grid dimensions, max pool capacity buffer (512x512), fixed physics timestep,
+ * geotechnical limits, hydrodynamic coefficients, and SharedArrayBuffer memory offsets.
  */
 
-// Grid & Domain Dimensions
+// Dynamic Domain Size Presets
+export enum BeachDomainPreset {
+  STANDARD_256 = 'standard_256', // 256x256 (6.4m x 6.4m)
+  WIDE_384 = 'wide_384',         // 384x256 (9.6m x 6.4m)
+  LONG_384 = 'long_384',         // 256x384 (6.4m x 9.6m)
+  MEGA_512 = 'mega_512'          // 512x512 (12.8m x 12.8m)
+}
+
+// Pre-Allocated Maximum Capacity Pool Dimensions (512 x 512)
+export const MAX_GRID_WIDTH = 512;
+export const MAX_GRID_HEIGHT = 512;
+export const MAX_CELL_COUNT = MAX_GRID_WIDTH * MAX_GRID_HEIGHT; // 262,144 cells
+
+// Default Active Domain Dimensions
 export const GRID_WIDTH = 256;
 export const GRID_HEIGHT = 256;
-export const CELL_COUNT = GRID_WIDTH * GRID_HEIGHT; // 65,536 cells
-export const CELL_SIZE = 0.025; // 0.025 metres per cell cell size (6.4m x 6.4m domain)
+export const CELL_COUNT = GRID_WIDTH * GRID_HEIGHT;
+export const CELL_SIZE = 0.025; // 0.025 metres per cell cell size (2.5cm)
 export const DOMAIN_SIZE_X = GRID_WIDTH * CELL_SIZE; // 6.4 metres
 export const DOMAIN_SIZE_Y = GRID_HEIGHT * CELL_SIZE; // 6.4 metres
 
@@ -32,7 +45,6 @@ export const SEDIMENT_DEPOSITION_RATE = 0.15; // Rate at which suspended sedimen
 export const DISSOLUTION_RATE = 0.08; // Saturation rate of sand when submerged
 
 // SharedArrayBuffer Layout Offset Indices (in Float32Array element units)
-// Total fields per cell = 7 Float32 arrays + 1 Int32 control array
 export const FIELD_BED_HEIGHT = 0;       // Terrain bed elevation z_b (m)
 export const FIELD_WATER_DEPTH = 1;      // Water column depth h (m)
 export const FIELD_MOMENTUM_X = 2;       // Water momentum component u * h (m^2/s)
@@ -42,7 +54,7 @@ export const FIELD_SATURATION = 5;       // Water saturation level of sand [0.0 
 export const FIELD_MATERIAL_FLAGS = 6;   // Bitfield/float for material types (0: Sand, 1: Stone/Rock, 2: Shells)
 
 export const NUM_FLOAT_FIELDS = 7;
-export const FLOAT_BUFFER_SIZE = CELL_COUNT * NUM_FLOAT_FIELDS * Float32Array.BYTES_PER_ELEMENT;
+export const FLOAT_BUFFER_SIZE = MAX_CELL_COUNT * NUM_FLOAT_FIELDS * Float32Array.BYTES_PER_ELEMENT;
 
 // Control / Synchronization Buffer Offset Indices (Int32Array units)
 export const CONTROL_MUTEX_LOCK = 0;     // Atomic lock for double-buffered atomic swaps (0 = free, 1 = locked)

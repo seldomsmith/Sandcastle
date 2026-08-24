@@ -1,13 +1,14 @@
 /**
  * Sandcastle vs. Tide Simulator - HUD Telemetry Header
  *
- * Top floating bar displaying Keep Integrity Gauge, Lighting Presets, Scenario Selector,
+ * Top floating bar displaying Keep Integrity Gauge, Beach Size Selector, Lighting Presets, Scenario Selector,
  * performance metrics, play/pause controls, tide speed toggles, stress heatmap, contour isolines, and castle sharing.
  */
 
 import React from 'react';
 import { COASTAL_SCENARIOS } from '../config/scenarios';
 import { LIGHTING_PRESETS, LightingPreset } from '../config/lightingPresets';
+import { BeachDomainPreset } from '../config/constants';
 import { WorkerBridge } from '../bridge/WorkerBridge';
 
 interface HUDHeaderProps {
@@ -20,7 +21,9 @@ interface HUDHeaderProps {
   speedMultiplier: number;
   keepHealthPercent: number;
   activeLighting: LightingPreset;
+  activeBeachPreset: BeachDomainPreset;
   onChangeLighting: (preset: LightingPreset) => void;
+  onChangeBeachPreset: (preset: BeachDomainPreset) => void;
   onChangeSpeed: (speed: number) => void;
   onToggleHeatmap: () => void;
   onToggleContours: () => void;
@@ -40,7 +43,9 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   speedMultiplier,
   keepHealthPercent,
   activeLighting,
+  activeBeachPreset,
   onChangeLighting,
+  onChangeBeachPreset,
   onChangeSpeed,
   onToggleHeatmap,
   onToggleContours,
@@ -57,6 +62,13 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
       WorkerBridge.getInstance().updateScenario(preset.config);
     }
   };
+
+  const beachPresets = [
+    { id: BeachDomainPreset.STANDARD_256, name: 'Standard Beach (6.4m × 6.4m)', icon: '🏖️' },
+    { id: BeachDomainPreset.WIDE_384, name: 'Wide Beach (9.6m × 6.4m)', icon: '↔️' },
+    { id: BeachDomainPreset.LONG_384, name: 'Long Beach (6.4m × 9.6m)', icon: '↕️' },
+    { id: BeachDomainPreset.MEGA_512, name: 'Mega Coast (12.8m × 12.8m)', icon: '🌋' }
+  ];
 
   return (
     <div
@@ -115,7 +127,35 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
 
         <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
 
-        {/* Task 2: Dynamic Time-of-Day Lighting Selector */}
+        {/* Dynamic Beach Domain Size Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}>BEACH SIZE:</span>
+          <select
+            value={activeBeachPreset}
+            onChange={(e) => onChangeBeachPreset(e.target.value as BeachDomainPreset)}
+            style={{
+              backgroundColor: '#1e293b',
+              color: '#38bdf8',
+              fontSize: '11px',
+              fontWeight: 700,
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              padding: '4px 8px',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            {beachPresets.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.icon} {b.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ height: '24px', width: '1px', backgroundColor: '#334155' }} />
+
+        {/* Dynamic Time-of-Day Lighting Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}>LIGHTING:</span>
           <select

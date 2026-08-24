@@ -15,6 +15,7 @@ import { WorkerBridge } from './bridge/WorkerBridge';
 import { BlueprintEncoder } from './utils/BlueprintEncoder';
 import { ToolType } from './types/simulation';
 import { LightingPreset, LIGHTING_PRESETS } from './config/lightingPresets';
+import { BeachDomainPreset } from './config/constants';
 
 export const App: React.FC = () => {
   const {
@@ -42,6 +43,7 @@ export const App: React.FC = () => {
   const [isAutopsyOpen, setIsAutopsyOpen] = useState(false);
   const [survivalTime, setSurvivalTime] = useState(0);
   const [activeLighting, setActiveLighting] = useState<LightingPreset>(LIGHTING_PRESETS[0]);
+  const [activeBeachPreset, setActiveBeachPreset] = useState<BeachDomainPreset>(BeachDomainPreset.STANDARD_256);
 
   // Measure initial Keep Core elevation when simulation initializes
   useEffect(() => {
@@ -156,7 +158,9 @@ export const App: React.FC = () => {
           speedMultiplier={speedMultiplier}
           keepHealthPercent={keepHealth}
           activeLighting={activeLighting}
+          activeBeachPreset={activeBeachPreset}
           onChangeLighting={setActiveLighting}
+          onChangeBeachPreset={setActiveBeachPreset}
           onChangeSpeed={handleSpeedChange}
           onToggleHeatmap={() => setShowHeatmap((prev) => !prev)}
           onToggleContours={() => setShowContours((prev) => !prev)}
