@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Integrates WaveGenerator for Three-Tier Tide equations (sin^2 astronomical tide + dual swells + wave group sets),
+ * Integrates WaveGenerator for Three-Tier Tide equations, deep water accumulation (0.45m),
  * Flather radiation outflow, and shallow celerity coupling v_in = sqrt(g * h).
  */
 
@@ -51,7 +51,7 @@ export class PipedFlowSolver {
     const g = GRAVITY;
     const dt = DT;
     const dx = CELL_SIZE;
-    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.15) / VIRTUAL_PIPE_LENGTH;
+    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.2) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
     const timeSec = tideFrame * dt;
 
@@ -62,7 +62,7 @@ export class PipedFlowSolver {
     const waveIndex = Math.floor(timeSec / 4.0);
     const waveStepReachY = Math.min(H - 1, 15 + waveIndex * 16);
 
-    // 2. PIPE FLUX COMPUTATION (Hydrostatic head differentials drive water up beach slope)
+    // 2. PIPE FLUX COMPUTATION (Water accumulates & pools behind wave front up to 0.45m!)
     for (let y = 0; y < H; y++) {
       const rowOffset = y * W;
 
@@ -97,9 +97,9 @@ export class PipedFlowSolver {
         }
 
         if (momentumY[idx] > 0) {
-          fT += momentumY[idx] * pipeFactor * 0.2;
+          fT += momentumY[idx] * pipeFactor * 0.25;
         } else if (momentumY[idx] < 0) {
-          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.25;
+          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.3;
         }
 
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;
@@ -120,7 +120,7 @@ export class PipedFlowSolver {
       }
     }
 
-    // 3. WATER DEPTH & MOMENTUM UPDATE WITH 0.12M DEPTH CLAMPING
+    // 3. WATER DEPTH & MOMENTUM UPDATE WITH 0.45M DEEP OCEAN SUPPORT
     this.deltaDepth.fill(0);
 
     for (let y = 0; y < H; y++) {
@@ -155,9 +155,9 @@ export class PipedFlowSolver {
     for (let i = 0; i < CELL_COUNT; i++) {
       let hNew = waterDepth[i] + this.deltaDepth[i];
 
-      // Smooth depth clamp (0.12m max) to prevent vertical blue geometry spires
-      if (hNew > 0.12) {
-        hNew = 0.12;
+      // Smooth depth clamp (0.45m max standing ocean water)
+      if (hNew > 0.45) {
+        hNew = 0.45;
       }
 
       if (hNew < MIN_WATER_DEPTH) {

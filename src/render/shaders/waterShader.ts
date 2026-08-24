@@ -21,8 +21,8 @@ export const waterVertexShader = /* glsl */ `
     float depth = texture2D(uWaterDepthMap, uv).r;
     float bed = texture2D(uBedHeightMap, uv).r;
 
-    // Clamp water depth to realistic max sheet thickness (12cm max depth above sand)
-    float clampedDepth = clamp(depth, 0.0, 0.12);
+    // Allow progressive deep water accumulation up to 0.45m standing ocean water
+    float clampedDepth = clamp(depth, 0.0, 0.45);
 
     vWaterDepth = clampedDepth;
     vTotalElevation = bed + clampedDepth;
@@ -62,7 +62,7 @@ export const waterFragmentShader = /* glsl */ `
     float fresnel = pow(1.0 - max(0.0, dot(viewDir, vec3(0.0, 1.0, 0.0))), 3.0);
     fresnel = clamp(fresnel, 0.2, 0.8);
 
-    float depthFactor = clamp(vWaterDepth / 0.12, 0.0, 1.0);
+    float depthFactor = clamp(vWaterDepth / 0.35, 0.0, 1.0);
     vec3 waterBase = mix(uWaterColor, uDeepWaterColor, depthFactor);
 
     // Shoreline Edge Foam (where depth is shallow < 0.02m)
