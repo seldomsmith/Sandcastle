@@ -33,72 +33,145 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   onReset
 }) => {
   return (
-    <div className="fixed top-4 left-4 right-4 z-50 flex items-center justify-between pointer-events-none">
+    <div
+      style={{
+        position: 'fixed',
+        top: '16px',
+        left: '20px',
+        right: '20px',
+        zIndex: 9999,
+        display: 'flex',
+        justify: 'space-between',
+        alignItems: 'center',
+        pointerEvents: 'none',
+        fontFamily: 'sans-serif'
+      }}
+    >
       {/* Telemetry Status Gauges */}
-      <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-white/15 px-4 py-2.5 rounded-xl pointer-events-auto text-xs font-mono text-slate-300 shadow-lg">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-slate-400">ENGINE:</span>
-          <span className="font-bold text-white">60 Hz</span>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          padding: '8px 16px',
+          borderRadius: '12px',
+          fontSize: '11px',
+          color: '#cbd5e1',
+          pointerEvents: 'auto',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34d399' }} />
+          <span style={{ color: '#94a3b8' }}>ENGINE:</span>
+          <span style={{ fontWeight: 700, color: '#ffffff' }}>60 Hz</span>
         </div>
 
-        <div className="h-3 w-px bg-slate-700" />
+        <div style={{ height: '12px', width: '1px', backgroundColor: '#334155' }} />
 
         <div>
-          <span className="text-slate-400">TICK:</span>{' '}
-          <span className="font-bold text-sky-400">{lastTickMs.toFixed(1)}ms</span>
+          <span style={{ color: '#94a3b8' }}>TICK:</span>{' '}
+          <span style={{ fontWeight: 700, color: '#38bdf8' }}>{lastTickMs.toFixed(1)}ms</span>
         </div>
 
-        <div className="h-3 w-px bg-slate-700" />
+        <div style={{ height: '12px', width: '1px', backgroundColor: '#334155' }} />
 
         <div>
-          <span className="text-slate-400">FRAME:</span>{' '}
-          <span className="font-bold text-white">{frameCount}</span>
+          <span style={{ color: '#94a3b8' }}>FRAME:</span>{' '}
+          <span style={{ fontWeight: 700, color: '#ffffff' }}>{frameCount}</span>
         </div>
 
-        <div className="h-3 w-px bg-slate-700" />
+        <div style={{ height: '12px', width: '1px', backgroundColor: '#334155' }} />
 
         <div>
-          <span className="text-slate-400">MEMORY:</span>{' '}
-          <span className={isSharedMemory ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+          <span style={{ color: '#94a3b8' }}>MEMORY:</span>{' '}
+          <span style={{ fontWeight: 700, color: isSharedMemory ? '#34d399' : '#fbbf24' }}>
             {isSharedMemory ? 'Zero-Copy SAB' : 'ArrayBuffer'}
           </span>
         </div>
       </div>
 
       {/* Tide Controls, Heatmap & Share Buttons */}
-      <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-white/15 px-4 py-2.5 rounded-xl pointer-events-auto shadow-lg">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          padding: '8px 16px',
+          borderRadius: '12px',
+          pointerEvents: 'auto',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+        }}
+      >
         <button
           onClick={onToggleHeatmap}
-          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all border cursor-pointer ${
-            showHeatmap
-              ? 'bg-rose-500/20 text-rose-300 border-rose-500/50'
-              : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-          }`}
+          style={{
+            padding: '6px 12px',
+            fontSize: '11px',
+            fontWeight: 700,
+            borderRadius: '8px',
+            cursor: 'pointer',
+            border: showHeatmap ? '1px solid rgba(244, 63, 94, 0.5)' : '1px solid #334155',
+            backgroundColor: showHeatmap ? 'rgba(244, 63, 94, 0.2)' : '#1e293b',
+            color: showHeatmap ? '#fda4af' : '#cbd5e1'
+          }}
         >
           {showHeatmap ? '🔥 Stress Heatmap ON' : '🌡️ Heatmap OFF'}
         </button>
 
         <button
           onClick={onShare}
-          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-xs rounded-lg transition-all border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+          style={{
+            padding: '6px 12px',
+            backgroundColor: '#1e293b',
+            color: '#7dd3fc',
+            fontSize: '11px',
+            fontWeight: 700,
+            borderRadius: '8px',
+            border: '1px solid #334155',
+            cursor: 'pointer'
+          }}
         >
-          <span>🔗</span> Share Castle
+          🔗 Share Castle
         </button>
 
-        <div className="h-3 w-px bg-slate-700 mx-1" />
+        <div style={{ height: '12px', width: '1px', backgroundColor: '#334155', margin: '0 4px' }} />
 
         {isTideActive ? (
           <button
             onClick={onPauseTide}
-            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-all shadow-md cursor-pointer"
+            style={{
+              padding: '6px 14px',
+              backgroundColor: '#f59e0b',
+              color: '#020617',
+              fontWeight: 700,
+              fontSize: '11px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer'
+            }}
           >
             Pause Tide
           </button>
         ) : (
           <button
             onClick={onStartTide}
-            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-all shadow-md shadow-rose-600/30 cursor-pointer"
+            style={{
+              padding: '6px 14px',
+              backgroundColor: '#e11d48',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '11px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer'
+            }}
           >
             Start Tide Surge
           </button>
@@ -106,7 +179,16 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
 
         <button
           onClick={onReset}
-          className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-all border border-slate-700 cursor-pointer"
+          style={{
+            padding: '6px 14px',
+            backgroundColor: '#1e293b',
+            color: '#cbd5e1',
+            fontWeight: 600,
+            fontSize: '11px',
+            borderRadius: '8px',
+            border: '1px solid #334155',
+            cursor: 'pointer'
+          }}
         >
           Reset Map
         </button>
