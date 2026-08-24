@@ -21,8 +21,8 @@ export const waterVertexShader = /* glsl */ `
     float depth = texture2D(uWaterDepthMap, uv).r;
     float bed = texture2D(uBedHeightMap, uv).r;
 
-    // Allow progressive deep water accumulation up to 0.45m standing ocean water
-    float clampedDepth = clamp(depth, 0.0, 0.45);
+    // Clamp water depth to paper-thin coastal swash sheet (3cm max depth above sand)
+    float clampedDepth = clamp(depth, 0.0, 0.035);
 
     vWaterDepth = clampedDepth;
     vTotalElevation = bed + clampedDepth;
@@ -52,7 +52,7 @@ export const waterFragmentShader = /* glsl */ `
   varying vec3 vNormalWS;
 
   void main() {
-    if (vWaterDepth < 0.001) {
+    if (vWaterDepth < 0.0005) {
       discard;
     }
 
@@ -62,15 +62,15 @@ export const waterFragmentShader = /* glsl */ `
     float fresnel = pow(1.0 - max(0.0, dot(viewDir, vec3(0.0, 1.0, 0.0))), 3.0);
     fresnel = clamp(fresnel, 0.2, 0.8);
 
-    float depthFactor = clamp(vWaterDepth / 0.35, 0.0, 1.0);
+    float depthFactor = clamp(vWaterDepth / 0.035, 0.0, 1.0);
     vec3 waterBase = mix(uWaterColor, uDeepWaterColor, depthFactor);
 
-    // Shoreline Edge Foam (where depth is shallow < 0.02m)
-    float foamLine = 1.0 - smoothstep(0.001, 0.02, vWaterDepth);
+    // Shoreline Edge Foam (where depth is shallow < 0.015m)
+    float foamLine = 1.0 - smoothstep(0.001, 0.015, vWaterDepth);
 
     // Turbulent Whitecap Crest Foam Pattern
     float waveFoamPattern = sin(vUv.y * 120.0 - uTime * 4.0) * cos(vUv.x * 80.0);
-    float whitecapCrest = smoothstep(0.4, 0.8, waveFoamPattern) * smoothstep(0.01, 0.04, vWaterDepth);
+    float whitecapCrest = smoothstep(0.4, 0.8, waveFoamPattern) * smoothstep(0.005, 0.02, vWaterDepth);
 
     vec3 foamColor = vec3(0.96, 0.98, 1.0);
     float totalFoam = clamp(foamLine * 0.75 + whitecapCrest * 0.5, 0.0, 0.95);
