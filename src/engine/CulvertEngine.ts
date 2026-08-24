@@ -1,55 +1,56 @@
 /**
- * Sandcastle vs. Tide Simulator - Multi-Layer Culvert Engine
+ * Sandcastle vs. Tide Simulator - Subsurface Culvert Engine
  *
- * Simulates subsurface conduit pipe flow (h_pipe, Q_pipe) beneath sand tunnel roofs.
- * Evaluates structural roof collapse rules based on roof thickness, compaction, and moisture saturation.
+ * Simulates subterranean pipe flow through placed culvert conduit channels.
+ * Channels water volume safely beneath sand structures and handles roof collapse if undercut.
  */
 
 import {
   GRID_WIDTH,
   GRID_HEIGHT,
   CELL_COUNT,
+  CELL_SIZE,
   DT,
   GRAVITY,
-  BEDROCK_ELEVATION
+  BEDROCK_ELEVATION,
+  MIN_WATER_DEPTH
 } from '../config/constants';
 import { SharedSimulationBuffers } from '../types/simulation';
 
 export class CulvertEngine {
-  private tunnelRoofHeight: Float32Array;
-  private pipeWaterDepth: Float32Array;
-
-  constructor() {
-    this.tunnelRoofHeight = new Float32Array(CELL_COUNT);
-    this.pipeWaterDepth = new Float32Array(CELL_COUNT);
-    this.tunnelRoofHeight.fill(0.0);
-    this.pipeWaterDepth.fill(0.0);
-  }
-
   /**
-   * Performs subsurface conduit flow and roof collapse evaluation.
+   * Process subsurface pipe culvert water routing.
+   * Material flag 3.0 indicates culvert pipe conduit.
    */
   public step(buffers: SharedSimulationBuffers): void {
-    const { bedHeight, waterDepth, compaction, saturation, materialFlags } = buffers;
+    const { bedHeight, waterDepth, materialFlags } = buffers;
+    const W = GRID_WIDTH;
+    const H = GRID_HEIGHT;
     const dt = DT;
 
-    for (let i = 0; i < CELL_COUNT; i++) {
-      const roofThick = this.tunnelRoofHeight[i];
-      if (roofThick <= 0.0) continue;
+    for (let y = 1; y < H - 1; y++) {
+      const rowOffset = y * W;
+      for (let x = 1; x < W - 1; x++) {
+        const idx = rowOffset + x;
 
-      const comp = compaction[i];
-      const sat = saturation[i];
+        // Check if cell is a subsurface culvert pipe (flag == 3.0)
+        if (materialFlags[idx] === 3.0) {
+          const hIn = waterDepth[idx];
+          if (hIn > MIN_WATER_DEPTH) {
+            // Conduit channel transfers water rapidly northward (+Y direction) to back basin
+            const outIdx = (y + 2) * W + x;
+            if (outIdx < CELL_COUNT) {
+              const transferVolume = Math.min(hIn, 0.05 * dt);
+              waterDepth[idx] -= transferVolume;
+              waterDepth[outIdx] += transferVolume;
+            }
+          }
 
-      // Unreinforced sand tunnel roof collapse criteria:
-      // Collapse occurs if roof thickness < 0.08m, compaction < 0.7, or saturation > 0.85
-      const isStone = materialFlags[i] === 1.0;
-      const isUnstable = !isStone && (roofThick < 0.08 || comp < 0.7 || sat > 0.85);
-
-      if (isUnstable) {
-        // Instant roof collapse: collapse roof sand into open trench
-        bedHeight[i] = Math.max(BEDROCK_ELEVATION, bedHeight[i] - roofThick);
-        this.tunnelRoofHeight[i] = 0.0;
-        this.pipeWaterDepth[i] = 0.0;
+          // If sand above culvert is heavily eroded, roof collapses
+          if (bedHeight[idx] <= BEDROCK_ELEVATION + 0.02) {
+            materialFlags[idx] = 0.0; // Roof collapsed into open sand channel
+          }
+        }
       }
     }
   }

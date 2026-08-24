@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Web Worker Simulation Engine
  *
  * Dedicated worker thread execution context running the Extended Piped-Flow hydrodynamics,
- * geotechnical detachment, tool brush applications, and atomic sync loop with speed sub-stepping.
+ * geotechnical detachment, 90-degree wall block shear, castle bucket stamp, and atomic sync loop.
  */
 
 import {
@@ -31,6 +31,7 @@ import {
 import { SharedMemoryManager } from './SharedMemory';
 import { PipedFlowSolver } from './PipedFlowSolver';
 import { GeotechnicalEngine } from './GeotechnicalEngine';
+import { CulvertEngine } from './CulvertEngine';
 
 // Worker Context State Variables
 let buffers: SharedSimulationBuffers | null = null;
@@ -43,6 +44,7 @@ let loopInterval: number | null = null;
 
 const pipedFlowSolver = new PipedFlowSolver();
 const geotechnicalEngine = new GeotechnicalEngine();
+const culvertEngine = new CulvertEngine();
 
 // Default Simulation Scenario Parameters
 const scenario: ScenarioConfig = {
@@ -107,7 +109,6 @@ self.onmessage = (event: MessageEvent<WorkerMessageRequest>) => {
 
     case SimCommand.SET_SCENARIO: {
       if (message.payload.wavePeriod !== undefined) {
-        // Use wavePeriod update as speed signal multiplier
         speedMultiplier = 5.0 / message.payload.wavePeriod;
       }
       Object.assign(scenario, message.payload);
@@ -212,8 +213,41 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
           break;
 
         case ToolType.STONE:
-          materialFlags[idx] = 1.0; // Mark as rigid non-erodible stone
+          materialFlags[idx] = 1.0; // Rigid non-erodible stone
           compaction[idx] = 1.0;
+          break;
+
+        case ToolType.WALL_90:
+          // Vertical 90-degree wall (Flag 2.0): High wall elevation with vertical profile
+          bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + delta * 1.8);
+          materialFlags[idx] = 2.0; // 90-Degree wall flag for chunk collapse
+          compaction[idx] = 0.85;
+          break;
+
+        case ToolType.BUCKET: {
+          // Stamp iconic sandcastle turret bucket with crenellations
+          const bucketR = Math.max(3, tool.radius);
+          const distBucket = Math.sqrt(distSq);
+          if (distBucket <= bucketR) {
+            // Tapered tower shape with top crenellation notches
+            const isCrenellation = (Math.atan2(dy, dx) * 4) % 1.0 > 0.5;
+            const towerHeight = 0.28 + (isCrenellation ? 0.05 : 0.0);
+            bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + towerHeight);
+            compaction[idx] = 0.9;
+          }
+          break;
+        }
+
+        case ToolType.CULVERT:
+          // Subsurface drainage pipe (Flag 3.0)
+          materialFlags[idx] = 3.0;
+          compaction[idx] = 0.95;
+          break;
+
+        case ToolType.SHELLS:
+          // Seashell armor (Flag 4.0): Protects sand slope from wave shear
+          materialFlags[idx] = 4.0;
+          compaction[idx] = 0.95;
           break;
       }
     }
@@ -247,20 +281,16 @@ function executeSimulationTick(): void {
 
   const tStart = performance.now();
 
-  // 1. Process main thread atomic tool signals
   processControlSignals(buffers);
 
-  // 2. Lock buffer for execution if shared
   const lockAcquired = SharedMemoryManager.acquireLock(buffers.controlBuffer);
   if (!lockAcquired) return;
 
   try {
-    // Determine sub-steps per frame based on speed multiplier (e.g. 0.5x, 1x, 2x, 5x)
     const subSteps = Math.max(1, Math.round(speedMultiplier));
     const isHalfSpeed = speedMultiplier < 0.75;
 
     for (let step = 0; step < subSteps; step++) {
-      // If half speed (0.5x), run physics on every second frame
       if (isHalfSpeed && frameCounter % 2 !== 0) continue;
 
       if (isRunning) {
@@ -269,6 +299,7 @@ function executeSimulationTick(): void {
       }
 
       geotechnicalEngine.step(buffers);
+      culvertEngine.step(buffers);
     }
 
     frameCounter++;
@@ -280,7 +311,6 @@ function executeSimulationTick(): void {
 
   const tDuration = performance.now() - tStart;
 
-  // If using non-SharedArrayBuffer fallback, post array buffer updates back to main thread
   if (!isSharedBuffer) {
     sendResponse({
       type: 'FALLBACK_UPDATE',

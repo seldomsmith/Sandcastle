@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Geotechnical & Erosion Engine
  *
  * Handles hydrodynamic shear detachment, sediment transport capacity,
- * sand saturation diffusion, and 8-neighbour angle-of-repose slumping with distance weighting.
+ * sand saturation diffusion, 90-degree vertical wall block chunk fractures, and seashell armor.
  */
 
 import {
@@ -23,11 +23,9 @@ import {
 import { SharedSimulationBuffers } from '../types/simulation';
 
 export class GeotechnicalEngine {
-  // Pre-allocated scratch arrays to eliminate GC overhead in tick
   private deltaSand: Float32Array;
   private maxDeltaSlope: Float32Array;
 
-  // 8-Neighbour stencil offsets: Orthogonal [0..3], Diagonal [4..7]
   private dx: Int32Array = new Int32Array([1, -1, 0, 0, 1, -1, 1, -1]);
   private dy: Int32Array = new Int32Array([0, 0, 1, -1, 1, 1, -1, -1]);
   private dist: Float32Array = new Float32Array([
@@ -41,7 +39,7 @@ export class GeotechnicalEngine {
   }
 
   /**
-   * Performs water saturation diffusion and geotechnical detachment + slumping updates.
+   * Performs water saturation diffusion, shear detachment, 90-degree wall chunk shear failure, and slumping updates.
    */
   public step(buffers: SharedSimulationBuffers): void {
     const { bedHeight, waterDepth, momentumX, momentumY, compaction, saturation, materialFlags } = buffers;
@@ -53,29 +51,28 @@ export class GeotechnicalEngine {
 
     this.deltaSand.fill(0.0);
 
-    // 1. SATURATION & HYDRODYNAMIC SHEAR DETACHMENT
+    // 1. SATURATION, SHELL ARMOR & HYDRODYNAMIC DETACHMENT
     for (let i = 0; i < CELL_COUNT; i++) {
       const h = waterDepth[i];
-      const isStone = materialFlags[i] === 1.0;
+      const mat = materialFlags[i];
 
-      // Skip non-erodible stone bedrock
-      if (isStone) continue;
+      // Skip non-erodible stone bedrock (Flag 1.0)
+      if (mat === 1.0) continue;
 
-      // Update sand saturation level based on water column depth
       if (h > MIN_WATER_DEPTH) {
         saturation[i] = Math.min(1.0, saturation[i] + DISSOLUTION_RATE * 2.5 * dt);
       } else {
         saturation[i] = Math.max(0.0, saturation[i] - DISSOLUTION_RATE * 0.2 * dt);
       }
 
-      // Calculate hydrodynamic shear stress |u| = sqrt(mx^2 + my^2) / h
       if (h > MIN_WATER_DEPTH) {
         const mx = momentumX[i];
         const my = momentumY[i];
         const speed = Math.sqrt(mx * mx + my * my) / h;
 
-        // Shear detachment threshold scaled by compaction
-        const effectiveCriticalShear = CRITICAL_SHEAR_DETACHMENT * (1.0 + compaction[i] * 1.5);
+        // Seashell armor (Flag 4.0) increases detachment resistance 3x
+        const armorFactor = mat === 4.0 ? 3.5 : 1.0;
+        const effectiveCriticalShear = CRITICAL_SHEAR_DETACHMENT * (1.0 + compaction[i] * 1.5) * armorFactor;
 
         if (speed > effectiveCriticalShear) {
           const excessShear = speed - effectiveCriticalShear;
@@ -89,12 +86,11 @@ export class GeotechnicalEngine {
       }
     }
 
-    // Apply shear detachment deltas
     for (let i = 0; i < CELL_COUNT; i++) {
       bedHeight[i] = Math.max(BEDROCK_ELEVATION, bedHeight[i] + this.deltaSand[i]);
     }
 
-    // 2. 8-NEIGHBOUR ANGLE-OF-REPOSE SLUMPING (Liquefaction & Collapse)
+    // 2. 90-DEGREE VERTICAL WALL CHUNK FRACTURE FAILURE & SLUMPING
     this.deltaSand.fill(0.0);
 
     for (let y = 0; y < H; y++) {
@@ -102,18 +98,45 @@ export class GeotechnicalEngine {
       for (let x = 0; x < W; x++) {
         const idx = rowOffset + x;
         const zb0 = bedHeight[idx];
+        const mat = materialFlags[idx];
 
-        if (zb0 <= BEDROCK_ELEVATION || materialFlags[idx] === 1.0) continue;
+        if (zb0 <= BEDROCK_ELEVATION || mat === 1.0) continue;
 
-        // Dynamic angle of repose based on wetness and compaction
         const sat = saturation[idx];
         const comp = compaction[idx];
         const h = waterDepth[idx];
 
-        // Saturated or submerged sand liquefies and slumps rapidly at ~8-12 degrees
+        // 90-degree wall (Flag 2.0): When undercut by water, fractures in discrete rectangular chunks
+        if (mat === 2.0 && (h > MIN_WATER_DEPTH || sat > 0.4)) {
+          // Block shear failure: large chunk collapses into adjacent lower cell
+          let lowestNeighborIdx = -1;
+          let lowestNeighborHeight = zb0;
+
+          for (let n = 0; n < 4; n++) {
+            const nx = x + this.dx[n];
+            const ny = y + this.dy[n];
+            if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
+              const nIdx = ny * W + nx;
+              if (bedHeight[nIdx] < lowestNeighborHeight) {
+                lowestNeighborHeight = bedHeight[nIdx];
+                lowestNeighborIdx = nIdx;
+              }
+            }
+          }
+
+          if (lowestNeighborIdx !== -1 && (zb0 - lowestNeighborHeight) > 0.08) {
+            // Shear entire block chunk off
+            const chunkVolume = Math.min(zb0 - BEDROCK_ELEVATION, 0.12);
+            this.deltaSand[idx] -= chunkVolume;
+            this.deltaSand[lowestNeighborIdx] += chunkVolume;
+            materialFlags[idx] = 0.0; // Wall block fractured into rubble
+            continue;
+          }
+        }
+
         let targetReposeAngle = DRY_ANGLE_OF_REPOSE;
         if (h > MIN_WATER_DEPTH || sat > 0.6) {
-          targetReposeAngle = SATURATED_ANGLE_OF_REPOSE * 0.7; // ~8 degrees for submerged sand
+          targetReposeAngle = SATURATED_ANGLE_OF_REPOSE * 0.7; // ~8 degrees for wet sand
         } else {
           targetReposeAngle = DRY_ANGLE_OF_REPOSE + comp * (WET_ANGLE_OF_REPOSE - DRY_ANGLE_OF_REPOSE);
         }
@@ -124,7 +147,6 @@ export class GeotechnicalEngine {
         let targetNeighborIdx = -1;
         let targetNeighborDist = 1.0;
 
-        // Evaluate all 8 neighbors
         for (let n = 0; n < 8; n++) {
           const nx = x + this.dx[n];
           const ny = y + this.dy[n];
@@ -143,7 +165,6 @@ export class GeotechnicalEngine {
           }
         }
 
-        // Transfer sand volume down the steepest unstable slope gradient
         if (targetNeighborIdx !== -1 && maxExcessSlope > 0) {
           const excessHeight = (maxExcessSlope - maxAllowedSlope) * targetNeighborDist * 0.6;
           const transferVolume = Math.min(zb0 - BEDROCK_ELEVATION, excessHeight);
@@ -154,7 +175,6 @@ export class GeotechnicalEngine {
       }
     }
 
-    // Apply slumping changes
     for (let i = 0; i < CELL_COUNT; i++) {
       if (this.deltaSand[i] !== 0) {
         bedHeight[i] = Math.max(BEDROCK_ELEVATION, bedHeight[i] + this.deltaSand[i]);

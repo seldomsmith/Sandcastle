@@ -20,13 +20,18 @@ export enum ToolType {
   RAISE = 1,
   DIG = 2,
   COMPACT = 3,
-  STONE = 4
+  STONE = 4,
+  WALL_90 = 5,
+  BUCKET = 6,
+  CULVERT = 7,
+  SHELLS = 8
 }
 
 export enum MaterialType {
   SAND = 0,
   STONE = 1,
-  SHELL = 2
+  SHELL = 2,
+  WALL_90 = 3
 }
 
 export interface ScenarioConfig {

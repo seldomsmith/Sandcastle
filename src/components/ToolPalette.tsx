@@ -1,8 +1,8 @@
 /**
  * Sandcastle vs. Tide Simulator - Tool Palette Component
  *
- * Left-side vertical glassmorphic dock allowing the user to select active sculpting tools
- * (Raise Sand, Dig Moat, Compact, Place Stone) or toggle Camera Orbit mode.
+ * Left-side vertical glassmorphic dock allowing the user to select active sculpting tools:
+ * Camera Orbit, Shovel, Dig, Tamper, Pebbles, 90° Wall, Turret Bucket, Culvert Pipe, Seashell Armor.
  */
 
 import React from 'react';
@@ -30,6 +30,10 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
     { type: ToolType.RAISE, label: 'Shovel (+ Sand)', icon: '⛰️' },
     { type: ToolType.DIG, label: 'Dig (- Moat)', icon: '⛏️' },
     { type: ToolType.COMPACT, label: 'Tamper (Compact)', icon: '🔨' },
+    { type: ToolType.WALL_90, label: '90° Wall (Chunks)', icon: '🧱' },
+    { type: ToolType.BUCKET, label: 'Turret (Bucket)', icon: '🪣' },
+    { type: ToolType.CULVERT, label: 'Culvert Trench', icon: '🕳️' },
+    { type: ToolType.SHELLS, label: 'Seashell Armor', icon: '🐚' },
     { type: ToolType.STONE, label: 'Pebbles (Stone)', icon: '🪨' }
   ];
 
@@ -40,7 +44,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
         left: '20px',
         top: '80px',
         zIndex: 9999,
-        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
         backdropFilter: 'blur(12px)',
         border: '1px solid rgba(255, 255, 255, 0.2)',
         borderRadius: '16px',
@@ -50,8 +54,10 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
-        width: '210px'
+        gap: '12px',
+        width: '215px',
+        maxHeight: 'calc(100vh - 100px)',
+        overflowY: 'auto'
       }}
     >
       <div style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.05em' }}>
@@ -59,7 +65,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
       </div>
 
       {/* Tool Selection Buttons */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {tools.map((t) => {
           const isActive = activeTool === t.type;
           return (
@@ -70,9 +76,9 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '8px 12px',
+                padding: '7px 10px',
                 borderRadius: '10px',
-                fontSize: '12px',
+                fontSize: '11px',
                 fontWeight: 600,
                 cursor: 'pointer',
                 border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
@@ -81,7 +87,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
                 textAlign: 'left'
               }}
             >
-              <span style={{ fontSize: '14px' }}>{t.icon}</span>
+              <span style={{ fontSize: '13px' }}>{t.icon}</span>
               <span>{t.label}</span>
             </button>
           );
@@ -93,7 +99,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
           <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
 
           {/* Brush Sliders */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '11px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#94a3b8' }}>Radius:</span>
