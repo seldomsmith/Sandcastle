@@ -27,6 +27,7 @@ interface HUDHeaderProps {
   onChangeSpeed: (speed: number) => void;
   onToggleHeatmap: () => void;
   onToggleContours: () => void;
+  onOpenScorecard: () => void;
   onShare: () => void;
   onStartTide: () => void;
   onPauseTide: () => void;
@@ -49,6 +50,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   onChangeSpeed,
   onToggleHeatmap,
   onToggleContours,
+  onOpenScorecard,
   onShare,
   onStartTide,
   onPauseTide,
@@ -100,11 +102,23 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
           pointerEvents: 'auto'
         }}
       >
-        {/* Keep Health Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Interactive Clickable Keep Health Bar */}
+        <div
+          onClick={onOpenScorecard}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            cursor: 'pointer',
+            padding: '2px 6px',
+            border: '1px stroke transparent',
+            transition: 'all 0.15s ease'
+          }}
+          title="Click to pop out live Telemetry Scorecard Report"
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em' }}>
-              <span style={{ color: '#666660' }}>KEEP INTEGRITY</span>
+              <span style={{ color: '#666660', textDecoration: 'underline' }}>KEEP INTEGRITY</span>
               <span style={{ color: '#111111', marginLeft: '8px', fontWeight: 800 }}>
                 {Math.round(keepHealthPercent)}%
               </span>
