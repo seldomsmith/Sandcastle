@@ -2,8 +2,8 @@
  * Sandcastle vs. Tide Simulator - Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Features shallow-water wave steepening, overtopping spillway acceleration,
- * dynamic rising base sea level Z_tide(t), and open ocean drainage.
+ * Features discrete wave swash packets advancing step-by-step up the beach,
+ * receding backwash drainage between waves, shallow wave steepening, and spillway acceleration.
  */
 
 import {
@@ -48,41 +48,52 @@ export class PipedFlowSolver {
     const g = GRAVITY;
     const dt = DT;
     const dx = CELL_SIZE;
-    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.25) / VIRTUAL_PIPE_LENGTH;
+    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.2) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. DYNAMIC BASE SEA-LEVEL RISE & SHALLOW WAVE STEEPENING
+    // 1. DISCRETE WAVE SWASH PACKETS ADVANCING STEP-BY-STEP UP THE BEACH
     const timeSec = tideFrame * dt;
-    this.wavePhase += (2.0 * Math.PI * dt) / 2.5; // 2.5s wave pulse cycle
+    this.wavePhase += (2.0 * Math.PI * dt) / 4.0; // 4-second wave cycle (2s forward swash, 2s receding backwash)
 
     const swashPulse = Math.sin(this.wavePhase);
     const isSwash = swashPulse > 0;
 
-    // Tide progress: 0.0 at T=0s -> 1.0 at T=12s
-    const tideProgress = Math.min(1.0, timeSec / 12.0);
-    const baseSeaElevation = 0.02 + tideProgress * 0.40;
+    // Tide progress: 0.0 at T=0s -> 1.0 at T=30s
+    const tideProgress = Math.min(1.0, timeSec / 30.0);
+    
+    // Calculate discrete wave count: Each wave reaches ~15 grid cells further up the beach than the last wave
+    const waveIndex = Math.floor(timeSec / 4.0);
+    const waveStepReachY = Math.min(H - 1, 15 + waveIndex * 16);
 
-    const meanShorelineY = Math.floor(10 + tideProgress * 235);
-    const currentReachY = Math.min(H - 1, meanShorelineY + (isSwash ? Math.floor(swashPulse * 20) : -Math.floor(Math.abs(swashPulse) * 8)));
+    // During swash phase (swashPulse > 0), wave rushes up to waveStepReachY.
+    // During backwash phase (swashPulse <= 0), wave recedes back toward sea by 12 cells!
+    const activeSwashReachY = isSwash
+      ? Math.min(H - 1, waveStepReachY + Math.floor(swashPulse * 14))
+      : Math.max(0, waveStepReachY - Math.floor(Math.abs(swashPulse) * 12));
+
+    // Dynamic base sea level rises gradually behind the wave front
+    const baseSeaElevation = 0.02 + tideProgress * 0.35;
 
     // Inject ocean wave pulse at seaward boundary (Y = 0)
     for (let x = 0; x < W; x++) {
       const idx = x; // Y = 0 row (Ocean boundary)
-      const oceanDepth = Math.max(0.01, baseSeaElevation - bedHeight[idx] + (isSwash ? swashPulse * 0.04 : 0.0));
+      const targetDepth = Math.max(0.01, baseSeaElevation - bedHeight[idx] + (isSwash ? swashPulse * 0.03 : 0.0));
 
-      waterDepth[idx] = oceanDepth;
       if (isSwash) {
-        momentumY[idx] = oceanDepth * 0.3 * swashPulse;
+        waterDepth[idx] = targetDepth;
+        momentumY[idx] = targetDepth * 0.25 * swashPulse; // Forward swash momentum
       } else {
-        momentumY[idx] = -oceanDepth * 0.2 * Math.abs(swashPulse);
+        waterDepth[idx] *= 0.5; // Drain receding backwash into ocean
+        momentumY[idx] = -targetDepth * 0.3 * Math.abs(swashPulse); // Seaward pull
       }
     }
 
-    // 2. PIPE FLUX COMPUTATION WITH SHALLOW STEEPENING & SPILLWAY ACCELERATION
+    // 2. PIPE FLUX COMPUTATION WITH DISCRETE WAVE FRONT HORIZON
     for (let y = 0; y < H; y++) {
       const rowOffset = y * W;
       
-      if (y > Math.max(2, currentReachY)) {
+      // Beyond active wave swash reach line: dry sand
+      if (y > Math.max(2, activeSwashReachY)) {
         for (let x = 0; x < W; x++) {
           const idx = rowOffset + x;
           waterDepth[idx] = 0;
@@ -119,23 +130,23 @@ export class PipedFlowSolver {
         let fT = Math.max(0, this.fluxT[idx] + pipeFactor * (totalHead0 - totalHeadT));
         let fB = Math.max(0, this.fluxB[idx] + pipeFactor * (totalHead0 - totalHeadB));
 
-        // Shallow-Water Wave Steepening Math: H_wave steepens as depth decreases (h < 0.08m)
+        // Shallow-Water Wave Steepening Math
         if (h0 < 0.08 && isSwash) {
           const steepeningFactor = Math.pow(0.08 / Math.max(0.005, h0), 0.25);
-          fT *= Math.min(2.0, steepeningFactor);
+          fT *= Math.min(1.8, steepeningFactor);
         }
 
-        // Seawall Overtopping Spillway Velocity Acceleration: v_spill = sqrt(2g * deltaH)
+        // Seawall Overtopping Spillway Velocity Acceleration
         const headDropT = totalHead0 - totalHeadT;
         if (headDropT > 0.05) {
           const vSpill = Math.sqrt(2.0 * g * headDropT);
-          fT += vSpill * pipeFactor * 0.4;
+          fT += vSpill * pipeFactor * 0.35;
         }
 
         if (momentumY[idx] > 0) {
           fT += momentumY[idx] * pipeFactor * 0.25;
         } else if (momentumY[idx] < 0) {
-          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.35;
+          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.35; // Pull backwash seaward
         }
 
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;
@@ -159,7 +170,7 @@ export class PipedFlowSolver {
     // 3. WATER DEPTH & MOMENTUM UPDATE
     this.deltaDepth.fill(0);
 
-    for (let y = 0; y <= currentReachY && y < H; y++) {
+    for (let y = 0; y <= activeSwashReachY && y < H; y++) {
       const rowOffset = y * W;
       for (let x = 0; x < W; x++) {
         const idx = rowOffset + x;
