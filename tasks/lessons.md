@@ -2,12 +2,12 @@
 
 ## 🌊 Water & Tide Hydrodynamic Baseline (DO NOT ALTER)
 
-### Key Working Parameters (`PipedFlowSolver.ts` & `waterShader.ts`):
-1. **Depth Clamping**: Max water depth capped at **$0.12\text{m}$ (12 cm)** above sand terrain in both shader vertex displacement and solver. Prevents vertical spires while permitting deep moat pooling.
-2. **Incremental Wave Swash Packets**: 4-second wave cycle ($T_{\text{cycle}} = 4.0\text{s}$) advancing step-by-step up beach Y-grid ($16\text{ cells}$ higher reach per wave).
-3. **Continuous Fluid Sheet Flow**: Smooth pipe factor ($0.15$) allowing swash water to naturally fill depressions, moats, and basins without artificial dry gaps.
-4. **Ocean Drainage Boundary**: Receding backwash phase drains $30\%$ of water volume seaward at $Y=0$ on each cycle.
+### Key Working Parameters (`PipedFlowSolver.ts`, `WaveGenerator.ts` & `waterShader.ts`):
+1. **Paper-Thin Coastal Swash Sheet**: Max water depth capped at **$0.035\text{m}$ (3.5 cm max depth)** above sand terrain in shader vertex displacement and solver. Eliminates the vertical swimming pool block wall defect.
+2. **Continuous Boundary Injection**: Row $Y=0$ maintains a continuous non-zero ocean water head ($h_{\text{min}} \ge 0.005\text{m}$) without zeroing out on wave lulls, allowing moats and basins to pool and deepen naturally.
+3. **Incremental Wave Swash Packets**: 4-second wave cycle ($T_{\text{cycle}} = 4.0\text{s}$) advancing step-by-step up beach Y-grid ($16\text{ cells}$ higher reach per wave).
+4. **Three-Tier Astronomical Tide Curve**: $\sin^2(t)$ base tide + superposed multi-frequency swells ($\sin 2.4t + \sin 4.1t$) and wave group sets.
 
-### Rule for Future Updates:
-- Never re-introduce artificial dry gap zeroing horizon masks.
-- Keep vertex depth displacement clamped to $0.12\text{m}$ max.
+### Peer Critique Lessons:
+- **Flaw in Un-clamped $v = \sqrt{gh}$**: Un-clamped water depth injection at $Y=0$ creates giant vertical blue spires and swimming pool block walls in 3D WebGL space.
+- **Flaw in `water = 0` Boundary Rule**: Zeroing out boundary cells during wave lulls forces accumulated water in moats to drain backwards out of the grid, destroying lake pooling.
