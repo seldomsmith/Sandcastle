@@ -2,8 +2,8 @@
  * Sandcastle vs. Tide Simulator - Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Features incremental wave train progression across beach over 60s,
- * virtual pipe flux solving, and Flather radiation absorption.
+ * Computes incremental wave train progression across beach over 60s,
+ * discrete finite wave pulses, virtual pipe flux solving, and Flather radiation condition.
  */
 
 import {
@@ -47,34 +47,49 @@ export class PipedFlowSolver {
     const g = GRAVITY;
     const dt = DT;
     const dx = CELL_SIZE;
-    const pipeFactor = (dt * g * PIPE_CROSS_SECTION) / VIRTUAL_PIPE_LENGTH;
+    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.25) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. INCREMENTAL WAVE TRAIN ADVANCEMENT (60-second total beach traversal at 1x)
-    // Seaward boundary at Y = 0 (ocean side)
+    // 1. INCREMENTAL WAVE TRAIN PROGRESSION OVER 60 SECONDS
     const timeSec = frame * dt;
-    this.wavePhase += (2.0 * Math.PI * dt) / 4.0; // 4-second wave cycle
+    this.wavePhase += (2.0 * Math.PI * dt) / 5.0; // 5-second wave pulse cycle
 
-    // Base tide sea level rises slowly over 60 seconds
-    const maxTideDepth = 0.35;
+    // Tide progress: 0.0 at T=0s -> 1.0 at T=60s
     const tideProgress = Math.min(1.0, timeSec / 60.0);
-    const baseSea = scenario.baseSeaLevel + (tideProgress * maxTideDepth);
+    
+    // Wave reach limit line (advances incrementally across grid Y from 0 to 255 over 60s)
+    const maxAllowedY = Math.floor(tideProgress * H);
 
-    // Wave pulses: Each wave delivers an incremental surge packet
-    const wavePulse = Math.pow(Math.max(0, Math.sin(this.wavePhase)), 3.0) * scenario.waveAmplitude * 0.8;
+    // Wave pulse height peaking
+    const wavePulse = Math.pow(Math.max(0, Math.sin(this.wavePhase)), 4.0) * scenario.waveAmplitude * 1.2;
+    const currentSeaLevel = scenario.baseSeaLevel + (tideProgress * 0.25) + wavePulse;
 
+    // Inject wave pulse at seaward ocean boundary (Y = 0)
     for (let x = 0; x < W; x++) {
       const idx = x; // Y = 0 row (Ocean front)
-      const targetWaterHeight = Math.max(0.0, baseSea + wavePulse - bedHeight[idx]);
+      const targetWaterDepth = Math.max(0.0, currentSeaLevel - bedHeight[idx]);
       
-      const celerity = Math.sqrt(g * Math.max(MIN_WATER_DEPTH, targetWaterHeight));
-      waterDepth[idx] = targetWaterHeight;
-      momentumY[idx] = targetWaterHeight * celerity * 0.8;
+      waterDepth[idx] = targetWaterDepth;
+      momentumY[idx] = targetWaterDepth * 0.4;
     }
 
-    // 2. PIPE FLUX COMPUTATION
+    // 2. PIPE FLUX COMPUTATION WITH WAVE REACH BOUNDARY LOCK
     for (let y = 0; y < H; y++) {
       const rowOffset = y * W;
+      
+      // Prevent water from jumping ahead of the current wave front horizon
+      if (y > maxAllowedY + 2) {
+        for (let x = 0; x < W; x++) {
+          const idx = rowOffset + x;
+          waterDepth[idx] = 0;
+          this.fluxR[idx] = 0;
+          this.fluxL[idx] = 0;
+          this.fluxT[idx] = 0;
+          this.fluxB[idx] = 0;
+        }
+        continue;
+      }
+
       for (let x = 0; x < W; x++) {
         const idx = rowOffset + x;
         const h0 = waterDepth[idx];
@@ -100,9 +115,9 @@ export class PipedFlowSolver {
         let fT = Math.max(0, this.fluxT[idx] + pipeFactor * (totalHead0 - totalHeadT));
         let fB = Math.max(0, this.fluxB[idx] + pipeFactor * (totalHead0 - totalHeadB));
 
-        // Direct wave momentum forward bias towards North shore (Y direction)
+        // Add forward momentum bias towards North shore (Y direction)
         if (momentumY[idx] > 0) {
-          fT += momentumY[idx] * pipeFactor * 0.3;
+          fT += momentumY[idx] * pipeFactor * 0.2;
         }
 
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;
@@ -126,7 +141,7 @@ export class PipedFlowSolver {
     // 3. WATER DEPTH & MOMENTUM UPDATE
     this.deltaDepth.fill(0);
 
-    for (let y = 0; y < H; y++) {
+    for (let y = 0; y <= maxAllowedY && y < H; y++) {
       const rowOffset = y * W;
       for (let x = 0; x < W; x++) {
         const idx = rowOffset + x;
@@ -165,7 +180,7 @@ export class PipedFlowSolver {
       waterDepth[i] = hNew;
     }
 
-    // 4. 3-SIDED OPEN BOUNDARY ABSORPTION SINKS (X=0, X=W-1, Y=H-1)
+    // 4. 3-SIDED OPEN BOUNDARY ABSORPTION SINKS
     for (let y = 0; y < H; y++) {
       const leftIdx = y * W;
       const rightIdx = y * W + (W - 1);
@@ -174,12 +189,6 @@ export class PipedFlowSolver {
       waterDepth[rightIdx] *= 0.85;
       momentumX[leftIdx] = 0;
       momentumX[rightIdx] = 0;
-    }
-
-    for (let x = 0; x < W; x++) {
-      const topIdx = (H - 1) * W + x;
-      waterDepth[topIdx] *= 0.85;
-      momentumY[topIdx] = 0;
     }
   }
 }
