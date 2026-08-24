@@ -134,41 +134,30 @@ function sendResponse(response: WorkerMessageResponse): void {
 }
 
 /**
- * Initialize base sand mound and flat bedrock terrain.
+ * Initialize flat beach terrain (sloping gently from 0.02m at seaward Y=0 to 0.08m at upper beach Y=255).
+ * Removes any default central sand mound.
  */
 function initializeTerrain(buf: SharedSimulationBuffers): void {
   const { bedHeight, waterDepth, momentumX, momentumY, compaction, saturation, materialFlags } = buf;
 
   const W = GRID_WIDTH;
   const H = GRID_HEIGHT;
-  const centerX = W / 2;
-  const centerY = H / 2;
-  const radius = W * 0.25;
 
   for (let y = 0; y < H; y++) {
     const rowOffset = y * W;
+    const slopeHeight = BEDROCK_ELEVATION + 0.02 + (y / H) * 0.06; // Gentle flat beach slope (0.02m -> 0.08m)
+
     for (let x = 0; x < W; x++) {
       const idx = rowOffset + x;
-      const dx = x - centerX;
-      const dy = y - centerY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Base plateau sandcastle mound
-      if (dist < radius) {
-        const heightFactor = Math.cos((dist / radius) * (Math.PI / 2));
-        bedHeight[idx] = BEDROCK_ELEVATION + heightFactor * 0.45;
-        compaction[idx] = 0.8;
-        saturation[idx] = 0.35; // Wet-packed molded sand look
-      } else {
-        bedHeight[idx] = BEDROCK_ELEVATION + 0.05;
-        compaction[idx] = 0.3;
-        saturation[idx] = 0.1;
-      }
+      bedHeight[idx] = slopeHeight;
+      compaction[idx] = 0.5;
+      saturation[idx] = y < H * 0.15 ? 0.4 : 0.1; // Slightly damp near ocean edge, dry sand on upper beach face
 
-      waterDepth[idx] = y < H * 0.1 ? (0.02 - (y / (H * 0.1)) * 0.02) : 0.0;
+      waterDepth[idx] = 0.0;
       momentumX[idx] = 0.0;
       momentumY[idx] = 0.0;
-      materialFlags[idx] = 0.0; // Sand
+      materialFlags[idx] = 0.0; // Standard sand
     }
   }
 }
@@ -204,7 +193,7 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
         case ToolType.RAISE:
           bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + delta);
           compaction[idx] = Math.min(0.9, compaction[idx] + delta);
-          saturation[idx] = Math.min(0.4, saturation[idx] + 0.1); // Damp sand texture
+          saturation[idx] = Math.min(0.4, saturation[idx] + 0.1);
           break;
 
         case ToolType.DIG:
@@ -222,35 +211,31 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
           break;
 
         case ToolType.WALL_90:
-          // Vertical 90-degree wall (Flag 2.0): Damp, densely-molded wet sand wall
           bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + delta * 1.8);
           materialFlags[idx] = 2.0; // 90-Degree wall flag for chunk collapse
           compaction[idx] = 0.95;
-          saturation[idx] = 0.45; // Dark, damp wet sand texture
+          saturation[idx] = 0.45;
           break;
 
         case ToolType.BUCKET: {
-          // Stamp iconic sandcastle turret bucket with wet-packed damp sand texture
           const bucketR = Math.max(3, tool.radius);
           const distBucket = Math.sqrt(distSq);
           if (distBucket <= bucketR) {
             const isCrenellation = (Math.atan2(dy, dx) * 4) % 1.0 > 0.5;
             const towerHeight = 0.28 + (isCrenellation ? 0.05 : 0.0);
             bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + towerHeight);
-            compaction[idx] = 1.0;     // Fully packed wet-molded turret
-            saturation[idx] = 0.50;   // Realistic wet sand specular sheen & dark tone
+            compaction[idx] = 1.0;
+            saturation[idx] = 0.50;
           }
           break;
         }
 
         case ToolType.CULVERT:
-          // Subsurface drainage pipe (Flag 3.0)
           materialFlags[idx] = 3.0;
           compaction[idx] = 0.95;
           break;
 
         case ToolType.SHELLS:
-          // Seashell armor (Flag 4.0): Protects sand slope from wave shear
           materialFlags[idx] = 4.0;
           compaction[idx] = 0.95;
           break;
