@@ -2,8 +2,8 @@
  * Sandcastle vs. Tide Simulator - Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Computes incremental wave train progression across beach over 60s,
- * discrete finite wave pulses, virtual pipe flux solving, and Flather radiation condition.
+ * Features thin-sheet coastal water swash (pushing inland) and backwash (draining seaward),
+ * open seaward drainage boundary at Y=0, and 60-second tide progression.
  */
 
 import {
@@ -47,38 +47,49 @@ export class PipedFlowSolver {
     const g = GRAVITY;
     const dt = DT;
     const dx = CELL_SIZE;
-    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.25) / VIRTUAL_PIPE_LENGTH;
+    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.15) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. INCREMENTAL WAVE TRAIN PROGRESSION OVER 60 SECONDS
+    // 1. SWASH / BACKWASH WAVE CYCLE & TIDE ADVANCEMENT (60s total beach traversal)
     const timeSec = frame * dt;
-    this.wavePhase += (2.0 * Math.PI * dt) / 5.0; // 5-second wave pulse cycle
+    this.wavePhase += (2.0 * Math.PI * dt) / 5.0; // 5-second wave cycle (2.5s swash, 2.5s backwash)
+
+    // Swash pulse factor [-1.0 .. +1.0]
+    const swashPulse = Math.sin(this.wavePhase);
+    const isSwash = swashPulse > 0;
 
     // Tide progress: 0.0 at T=0s -> 1.0 at T=60s
     const tideProgress = Math.min(1.0, timeSec / 60.0);
     
-    // Wave reach limit line (advances incrementally across grid Y from 0 to 255 over 60s)
-    const maxAllowedY = Math.floor(tideProgress * H);
+    // Mean shoreline position advances from Y=0 to Y=200 over 60 seconds
+    const meanShorelineY = Math.floor(tideProgress * 200);
+    
+    // Wave swash reach reaches ~15 grid cells past mean shoreline during swash phase
+    const currentReachY = Math.min(H - 1, meanShorelineY + (isSwash ? Math.floor(swashPulse * 18) : -Math.floor(Math.abs(swashPulse) * 10)));
 
-    // Wave pulse height peaking
-    const wavePulse = Math.pow(Math.max(0, Math.sin(this.wavePhase)), 4.0) * scenario.waveAmplitude * 1.2;
-    const currentSeaLevel = scenario.baseSeaLevel + (tideProgress * 0.25) + wavePulse;
+    // Thin coastal water sheet thickness (capped at 2.5cm = 0.025m max!)
+    const maxSheetDepth = 0.025;
+    const swashDepth = isSwash ? (swashPulse * maxSheetDepth) : 0.002;
 
-    // Inject wave pulse at seaward ocean boundary (Y = 0)
+    // Inject thin swash sheet at seaward ocean boundary (Y = 0)
     for (let x = 0; x < W; x++) {
-      const idx = x; // Y = 0 row (Ocean front)
-      const targetWaterDepth = Math.max(0.0, currentSeaLevel - bedHeight[idx]);
-      
-      waterDepth[idx] = targetWaterDepth;
-      momentumY[idx] = targetWaterDepth * 0.4;
+      const idx = x; // Y = 0 row (Ocean boundary)
+      if (isSwash) {
+        waterDepth[idx] = Math.min(maxSheetDepth, swashDepth);
+        momentumY[idx] = 0.15 * swashPulse; // Positive inland momentum
+      } else {
+        // Backwash phase: drain water back out seaward into ocean
+        waterDepth[idx] *= 0.7;
+        momentumY[idx] = -0.2 * Math.abs(swashPulse); // Negative seaward momentum
+      }
     }
 
-    // 2. PIPE FLUX COMPUTATION WITH WAVE REACH BOUNDARY LOCK
+    // 2. PIPE FLUX COMPUTATION WITH REALISTIC SWASH REACH BOUNDARY
     for (let y = 0; y < H; y++) {
       const rowOffset = y * W;
       
-      // Prevent water from jumping ahead of the current wave front horizon
-      if (y > maxAllowedY + 2) {
+      // Beyond current wave swash reach: dry sand
+      if (y > Math.max(2, currentReachY)) {
         for (let x = 0; x < W; x++) {
           const idx = rowOffset + x;
           waterDepth[idx] = 0;
@@ -92,7 +103,13 @@ export class PipedFlowSolver {
 
       for (let x = 0; x < W; x++) {
         const idx = rowOffset + x;
-        const h0 = waterDepth[idx];
+        let h0 = waterDepth[idx];
+
+        // Hard cap depth to thin coastal sheet (max 3cm)
+        if (h0 > maxSheetDepth) {
+          h0 = maxSheetDepth;
+          waterDepth[idx] = maxSheetDepth;
+        }
 
         if (h0 < MIN_WATER_DEPTH) {
           this.fluxR[idx] = 0;
@@ -115,9 +132,11 @@ export class PipedFlowSolver {
         let fT = Math.max(0, this.fluxT[idx] + pipeFactor * (totalHead0 - totalHeadT));
         let fB = Math.max(0, this.fluxB[idx] + pipeFactor * (totalHead0 - totalHeadB));
 
-        // Add forward momentum bias towards North shore (Y direction)
+        // Swash / Backwash directional momentum bias
         if (momentumY[idx] > 0) {
           fT += momentumY[idx] * pipeFactor * 0.2;
+        } else if (momentumY[idx] < 0) {
+          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.3; // Pull backwash seaward
         }
 
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;
@@ -141,7 +160,7 @@ export class PipedFlowSolver {
     // 3. WATER DEPTH & MOMENTUM UPDATE
     this.deltaDepth.fill(0);
 
-    for (let y = 0; y <= maxAllowedY && y < H; y++) {
+    for (let y = 0; y <= currentReachY && y < H; y++) {
       const rowOffset = y * W;
       for (let x = 0; x < W; x++) {
         const idx = rowOffset + x;
@@ -172,6 +191,12 @@ export class PipedFlowSolver {
 
     for (let i = 0; i < CELL_COUNT; i++) {
       let hNew = waterDepth[i] + this.deltaDepth[i];
+      
+      // Enforce thin-sheet maximum depth cap (2.5cm max depth!)
+      if (hNew > maxSheetDepth) {
+        hNew = maxSheetDepth;
+      }
+
       if (hNew < MIN_WATER_DEPTH) {
         hNew = 0.0;
         momentumX[i] = 0.0;
@@ -180,15 +205,11 @@ export class PipedFlowSolver {
       waterDepth[i] = hNew;
     }
 
-    // 4. 3-SIDED OPEN BOUNDARY ABSORPTION SINKS
-    for (let y = 0; y < H; y++) {
-      const leftIdx = y * W;
-      const rightIdx = y * W + (W - 1);
-
-      waterDepth[leftIdx] *= 0.85;
-      waterDepth[rightIdx] *= 0.85;
-      momentumX[leftIdx] = 0;
-      momentumX[rightIdx] = 0;
+    // 4. OPEN SEAWARD DRAINAGE AT Y = 0 (Backwash drains back into ocean)
+    if (!isSwash) {
+      for (let x = 0; x < W; x++) {
+        waterDepth[x] *= 0.5; // Drain receding backwash
+      }
     }
   }
 }
