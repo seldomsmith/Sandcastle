@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - HUD Telemetry Header
  *
  * Top floating bar displaying Keep Integrity, Tide status, simulation frame counter,
- * performance metrics, play/pause controls, tide speed toggles, stress heatmap, and castle sharing.
+ * performance metrics, play/pause controls, tide speed toggles, stress heatmap, contour isolines, and castle sharing.
  */
 
 import React from 'react';
@@ -13,9 +13,12 @@ interface HUDHeaderProps {
   lastTickMs: number;
   isSharedMemory: boolean;
   showHeatmap: boolean;
+  showContours: boolean;
   speedMultiplier: number;
+  keepHealthPercent: number;
   onChangeSpeed: (speed: number) => void;
   onToggleHeatmap: () => void;
+  onToggleContours: () => void;
   onShare: () => void;
   onStartTide: () => void;
   onPauseTide: () => void;
@@ -28,9 +31,12 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   lastTickMs,
   isSharedMemory,
   showHeatmap,
+  showContours,
   speedMultiplier,
+  keepHealthPercent,
   onChangeSpeed,
   onToggleHeatmap,
+  onToggleContours,
   onShare,
   onStartTide,
   onPauseTide,
@@ -53,7 +59,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         fontFamily: 'sans-serif'
       }}
     >
-      {/* Telemetry Status Gauges */}
+      {/* Telemetry Status Gauges & Keep Integrity Meter */}
       <div
         style={{
           display: 'flex',
@@ -70,6 +76,17 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
         }}
       >
+        {/* Keep Integrity Gauge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '13px' }}>🏰</span>
+          <span style={{ color: '#94a3b8' }}>KEEP:</span>
+          <span style={{ fontWeight: 800, color: keepHealthPercent > 50 ? '#34d399' : '#f43f5e' }}>
+            {Math.round(keepHealthPercent)}%
+          </span>
+        </div>
+
+        <div style={{ height: '12px', width: '1px', backgroundColor: '#334155' }} />
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34d399' }} />
           <span style={{ color: '#94a3b8' }}>ENGINE:</span>
@@ -86,13 +103,6 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         <div style={{ height: '12px', width: '1px', backgroundColor: '#334155' }} />
 
         <div>
-          <span style={{ color: '#94a3b8' }}>FRAME:</span>{' '}
-          <span style={{ fontWeight: 700, color: '#ffffff' }}>{frameCount}</span>
-        </div>
-
-        <div style={{ height: '12px', width: '1px', backgroundColor: '#334155' }} />
-
-        <div>
           <span style={{ color: '#94a3b8' }}>MEMORY:</span>{' '}
           <span style={{ fontWeight: 700, color: isSharedMemory ? '#34d399' : '#fbbf24' }}>
             {isSharedMemory ? 'Zero-Copy SAB' : 'ArrayBuffer'}
@@ -100,7 +110,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         </div>
       </div>
 
-      {/* Tide Controls, Speed Selector, Heatmap & Share Buttons */}
+      {/* Tide Controls, Speed Selector, Heatmap, Contours & Share Buttons */}
       <div
         style={{
           display: 'flex',
@@ -140,6 +150,24 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
 
         <div style={{ height: '12px', width: '1px', backgroundColor: '#334155', margin: '0 4px' }} />
 
+        {/* Topographic Contours Toggle */}
+        <button
+          onClick={onToggleContours}
+          style={{
+            padding: '6px 12px',
+            fontSize: '11px',
+            fontWeight: 700,
+            borderRadius: '8px',
+            cursor: 'pointer',
+            border: showContours ? '1px solid #38bdf8' : '1px solid #334155',
+            backgroundColor: showContours ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+            color: showContours ? '#38bdf8' : '#cbd5e1'
+          }}
+        >
+          {showContours ? '📐 Contours ON' : '📐 Contours OFF'}
+        </button>
+
+        {/* Stress Heatmap Toggle */}
         <button
           onClick={onToggleHeatmap}
           style={{
@@ -153,7 +181,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
             color: showHeatmap ? '#fda4af' : '#cbd5e1'
           }}
         >
-          {showHeatmap ? '🔥 Stress Heatmap ON' : '🌡️ Heatmap OFF'}
+          {showHeatmap ? '🔥 Heatmap ON' : '🌡️ Heatmap OFF'}
         </button>
 
         <button

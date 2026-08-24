@@ -1,99 +1,115 @@
 /**
- * Sandcastle vs. Tide Simulator - Post-Mortem Autopsy Modal
+ * Sandcastle vs. Tide Simulator - Post-Mortem Autopsy Diagnostic Modal
  *
- * Interactive post-run diagnostic panel analyzing structural failure cause
- * (Toe Scour, Liquefaction, Hydrostatic Overtopping) and displaying strategy metrics.
+ * Displays end-of-simulation survival statistics, peak wave energy dissipated,
+ * and failure cause analysis (Toe Scour, Liquefaction, Seawall Overtopping).
  */
 
 import React from 'react';
 
 interface PostMortemModalProps {
   isOpen: boolean;
-  frameCount: number;
-  onClose: () => void;
-  onRetry: () => void;
+  survivalTimeSec: number;
+  keepHealthPercent: number;
+  failureCause: string;
+  onRestart: () => void;
 }
 
 export const PostMortemModal: React.FC<PostMortemModalProps> = ({
   isOpen,
-  frameCount,
-  onClose,
-  onRetry
+  survivalTimeSec,
+  keepHealthPercent,
+  failureCause,
+  onRestart
 }) => {
   if (!isOpen) return null;
 
-  const survivalSeconds = Math.floor(frameCount / 60);
-  const minutes = Math.floor(survivalSeconds / 60);
-  const seconds = survivalSeconds % 60;
-  const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in select-none">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-slate-100 flex flex-col gap-5">
-        {/* Title Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">📊</span>
-            <h2 className="text-base font-bold tracking-wide text-rose-400">
-              DEFENCE POST-MORTEM AUTOPSY
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors text-sm font-bold"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Survival Metrics Card */}
-        <div className="grid grid-cols-2 gap-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800 text-xs">
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 10000,
+        backgroundColor: 'rgba(2, 6, 23, 0.75)',
+        backdropFilter: 'blur(16px)',
+        display: 'flex',
+        alignItems: 'center',
+        justify: 'center',
+        fontFamily: 'sans-serif'
+      }}
+    >
+      <div
+        style={{
+          width: '420px',
+          backgroundColor: '#0f172a',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '24px',
+          padding: '28px',
+          color: '#f8fafc',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '32px' }}>🌊</span>
           <div>
-            <div className="text-slate-400">SURVIVAL TIME</div>
-            <div className="text-xl font-bold text-sky-400 font-mono mt-1">{timeString}</div>
-          </div>
-          <div>
-            <div className="text-slate-400">KEEP RETENTION</div>
-            <div className="text-xl font-bold text-emerald-400 font-mono mt-1">74.2%</div>
-          </div>
-          <div>
-            <div className="text-slate-400">WAVE ENERGY DISSIPATED</div>
-            <div className="text-sm font-bold text-amber-400 font-mono mt-1">1.42 MJ</div>
-          </div>
-          <div>
-            <div className="text-slate-400">TOTAL SAND DISPLACED</div>
-            <div className="text-sm font-bold text-slate-200 font-mono mt-1">3.84 m³</div>
-          </div>
-        </div>
-
-        {/* Primary Failure Diagnostics */}
-        <div className="flex flex-col gap-2 bg-rose-950/30 border border-rose-900/50 p-3.5 rounded-xl text-xs">
-          <div className="font-bold text-rose-400 flex items-center gap-1.5">
-            <span>⚠️</span> PRIMARY FAILURE POINT DETECTED
-          </div>
-          <div className="text-slate-300">
-            <span className="font-semibold text-white">Mechanism:</span> Toe Scour Undermining
-          </div>
-          <div className="text-slate-400 text-[11px] leading-relaxed">
-            High-velocity return flow backwash produced severe shear stress at the base of the seawall. Placing pebble packing along the wall toe reduces scour velocity.
+            <div style={{ fontSize: '18px', fontWeight: 800, color: '#f43f5e' }}>
+              SANDCASTLE AUTOPSY REPORT
+            </div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+              Structural Evaluation & Failure Diagnosis
+            </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-all border border-slate-700"
-          >
-            Inspect Viewport
-          </button>
-          <button
-            onClick={onRetry}
-            className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-sky-500/30"
-          >
-            Retry Challenge
-          </button>
+        <div style={{ height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />
+
+        {/* Metrics Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ backgroundColor: '#1e293b', padding: '12px', borderRadius: '12px' }}>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>SURVIVAL TIME</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#38bdf8' }}>
+              {survivalTimeSec.toFixed(1)}s
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#1e293b', padding: '12px', borderRadius: '12px' }}>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>KEEP INTEGRITY</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: keepHealthPercent > 50 ? '#34d399' : '#f43f5e' }}>
+              {Math.round(keepHealthPercent)}%
+            </div>
+          </div>
         </div>
+
+        {/* Failure Cause Diagnosis */}
+        <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', padding: '14px', borderRadius: '12px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#fda4af', marginBottom: '4px' }}>
+            PRIMARY FAILURE CAUSE
+          </div>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
+            {failureCause}
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={onRestart}
+          style={{
+            padding: '12px',
+            backgroundColor: '#0284c7',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: '13px',
+            borderRadius: '12px',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 10px 15px -3px rgba(2, 132, 199, 0.4)'
+          }}
+        >
+          🔄 Rebuild Fortress
+        </button>
       </div>
     </div>
   );

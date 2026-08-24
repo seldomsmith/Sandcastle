@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - R3F Sand Terrain Mesh
  *
  * Renders a single 256x256 displaced plane geometry bound to the SharedArrayBuffer
- * Float32Array via DataTextures with zero-allocation GPU updates and diagnostic heatmap toggle.
+ * Float32Array via DataTextures with zero-allocation GPU updates, heatmap, and contour toggles.
  */
 
 import React, { useRef, useMemo, useEffect } from 'react';
@@ -14,9 +14,13 @@ import { terrainVertexShader, terrainFragmentShader } from './shaders/terrainSha
 
 interface SandTerrainMeshProps {
   showHeatmap?: boolean;
+  showContours?: boolean;
 }
 
-export const SandTerrainMesh: React.FC<SandTerrainMeshProps> = ({ showHeatmap = false }) => {
+export const SandTerrainMesh: React.FC<SandTerrainMeshProps> = ({
+  showHeatmap = false,
+  showContours = false
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
 
@@ -54,16 +58,18 @@ export const SandTerrainMesh: React.FC<SandTerrainMeshProps> = ({ showHeatmap = 
       uSunColor: { value: new THREE.Color(1.0, 0.95, 0.85) },
       uAmbientColor: { value: new THREE.Color(0.25, 0.28, 0.35) },
       uTime: { value: 0 },
-      uShowHeatmap: { value: showHeatmap }
+      uShowHeatmap: { value: showHeatmap },
+      uShowContours: { value: showContours }
     }),
-    [bedTexture, saturationTexture, compactionTexture, showHeatmap]
+    [bedTexture, saturationTexture, compactionTexture, showHeatmap, showContours]
   );
 
   useEffect(() => {
     if (materialRef.current) {
       materialRef.current.uniforms.uShowHeatmap.value = showHeatmap;
+      materialRef.current.uniforms.uShowContours.value = showContours;
     }
-  }, [showHeatmap]);
+  }, [showHeatmap, showContours]);
 
   useFrame((state) => {
     const bridge = WorkerBridge.getInstance();

@@ -19,6 +19,7 @@ interface SimulationViewportProps {
   brushRadius: number;
   brushStrength: number;
   showHeatmap?: boolean;
+  showContours?: boolean;
   isOrbitLocked?: boolean;
 }
 
@@ -27,6 +28,7 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
   brushRadius,
   brushStrength,
   showHeatmap = false,
+  showContours = false,
   isOrbitLocked = false
 }) => {
   const [isBridgeReady, setIsBridgeReady] = useState(false);
@@ -71,7 +73,7 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
         />
 
         {/* Dynamic Simulation Meshes */}
-        <SandTerrainMesh showHeatmap={showHeatmap} />
+        <SandTerrainMesh showHeatmap={showHeatmap} showContours={showContours} />
         <WaterSurfaceMesh />
 
         {/* 3D Pointer Raycasting Sculpting Engine */}
