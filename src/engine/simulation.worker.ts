@@ -42,15 +42,15 @@ let loopInterval: number | null = null;
 const pipedFlowSolver = new PipedFlowSolver();
 const geotechnicalEngine = new GeotechnicalEngine();
 
-// Default Simulation Scenario Parameters
+// Slow, Realistic Coastal Scenario Default Parameters
 const scenario: ScenarioConfig = {
-  waveAmplitude: 0.18,
-  wavePeriod: 5.0,
-  tideRiseRate: 0.0008,
-  baseSeaLevel: 0.1,
-  windVelocityX: 0.5,
-  windVelocityY: 0.2,
-  sedimentCohesion: 0.5
+  waveAmplitude: 0.10,
+  wavePeriod: 12.0,       // Slow 12-second wave period
+  tideRiseRate: 0.00008,  // 10x slower sea-level rise rate
+  baseSeaLevel: 0.05,
+  windVelocityX: 0.2,
+  windVelocityY: 0.1,
+  sedimentCohesion: 0.6
 };
 
 /**
@@ -155,7 +155,7 @@ function initializeTerrain(buf: SharedSimulationBuffers): void {
         compaction[idx] = 0.2;
       }
 
-      waterDepth[idx] = y < H * 0.2 ? (0.25 - (y / (H * 0.2)) * 0.2) : 0.0;
+      waterDepth[idx] = y < H * 0.15 ? (0.15 - (y / (H * 0.15)) * 0.15) : 0.0;
       momentumX[idx] = 0.0;
       momentumY[idx] = 0.0;
       saturation[idx] = waterDepth[idx] > 0 ? 0.8 : 0.1;
@@ -284,7 +284,6 @@ function executeSimulationTick(): void {
 
 /**
  * Self-correcting hybrid 60 Hz simulation loop.
- * Always ticks so tool brush strokes update in real time even during build phase!
  */
 function startSimulationLoop(): void {
   if (loopInterval !== null) clearInterval(loopInterval);
