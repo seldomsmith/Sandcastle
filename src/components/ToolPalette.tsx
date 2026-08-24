@@ -33,19 +33,19 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
   ];
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-3 bg-slate-900/75 backdrop-blur-md border border-white/10 px-5 py-3 rounded-2xl shadow-2xl">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-white/15 px-6 py-3.5 rounded-2xl shadow-2xl pointer-events-auto">
       {/* Tool Selection Buttons */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         {tools.map((t) => {
           const isActive = activeTool === t.type;
           return (
             <button
               key={t.type}
               onClick={() => onSelectTool(t.type)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isActive
                   ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30 scale-105'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700'
               }`}
             >
               <span>{t.icon}</span>
@@ -65,7 +65,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
             max={16}
             value={brushRadius}
             onChange={(e) => onChangeRadius(Number(e.target.value))}
-            className="w-24 accent-sky-400 cursor-pointer"
+            className="w-28 accent-sky-400 cursor-pointer"
           />
           <span className="w-5 text-right font-bold text-sky-400">{brushRadius}</span>
         </div>
@@ -79,7 +79,7 @@ export const ToolPalette: React.FC<ToolPaletteProps> = ({
             step={0.01}
             value={brushStrength}
             onChange={(e) => onChangeStrength(Number(e.target.value))}
-            className="w-24 accent-sky-400 cursor-pointer"
+            className="w-28 accent-sky-400 cursor-pointer"
           />
           <span className="w-8 text-right font-bold text-sky-400">
             {Math.round(brushStrength * 100)}%

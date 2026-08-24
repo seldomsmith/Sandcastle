@@ -48,7 +48,7 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
   }
 
   return (
-    <div className="w-screen h-screen absolute inset-0 bg-slate-900 overflow-hidden select-none">
+    <div className="w-full h-full absolute inset-0 z-0 bg-slate-900 overflow-hidden select-none">
       <Canvas
         camera={{ position: [0, 3.0, 3.8], fov: 50 }}
         shadows

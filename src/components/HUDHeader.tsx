@@ -33,9 +33,9 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
   onReset
 }) => {
   return (
-    <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+    <div className="fixed top-4 left-4 right-4 z-50 flex items-center justify-between pointer-events-none">
       {/* Telemetry Status Gauges */}
-      <div className="flex items-center gap-3 bg-slate-900/80 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded-xl pointer-events-auto text-xs font-mono text-slate-300 shadow-lg">
+      <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-white/15 px-4 py-2.5 rounded-xl pointer-events-auto text-xs font-mono text-slate-300 shadow-lg">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-slate-400">ENGINE:</span>
@@ -67,10 +67,10 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
       </div>
 
       {/* Tide Controls, Heatmap & Share Buttons */}
-      <div className="flex items-center gap-3 bg-slate-900/80 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded-xl pointer-events-auto shadow-lg">
+      <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-white/15 px-4 py-2.5 rounded-xl pointer-events-auto shadow-lg">
         <button
           onClick={onToggleHeatmap}
-          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all border ${
+          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all border cursor-pointer ${
             showHeatmap
               ? 'bg-rose-500/20 text-rose-300 border-rose-500/50'
               : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
@@ -81,7 +81,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
 
         <button
           onClick={onShare}
-          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-xs rounded-lg transition-all border border-slate-700 flex items-center gap-1.5"
+          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-xs rounded-lg transition-all border border-slate-700 flex items-center gap-1.5 cursor-pointer"
         >
           <span>🔗</span> Share Castle
         </button>
@@ -91,14 +91,14 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
         {isTideActive ? (
           <button
             onClick={onPauseTide}
-            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-all shadow-md"
+            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-all shadow-md cursor-pointer"
           >
             Pause Tide
           </button>
         ) : (
           <button
             onClick={onStartTide}
-            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-all shadow-md shadow-rose-600/30"
+            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-all shadow-md shadow-rose-600/30 cursor-pointer"
           >
             Start Tide Surge
           </button>
@@ -106,7 +106,7 @@ export const HUDHeader: React.FC<HUDHeaderProps> = ({
 
         <button
           onClick={onReset}
-          className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-all border border-slate-700"
+          className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-all border border-slate-700 cursor-pointer"
         >
           Reset Map
         </button>
