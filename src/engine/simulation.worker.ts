@@ -2,7 +2,8 @@
  * Sandcastle vs. Tide Simulator - Web Worker Simulation Engine
  *
  * Dedicated worker thread execution context running the Extended Piped-Flow hydrodynamics,
- * geotechnical detachment, 90-degree wall block shear, wet sand turret bucket stamp, and atomic sync loop.
+ * geotechnical detachment, 90-degree wall block shear, wet sand turret bucket stamp,
+ * rolling pin planar flattening, and atomic sync loop.
  */
 
 import {
@@ -135,7 +136,6 @@ function sendResponse(response: WorkerMessageResponse): void {
 
 /**
  * Initialize flat beach terrain (sloping gently from 0.02m at seaward Y=0 to 0.08m at upper beach Y=255).
- * Removes any default central sand mound.
  */
 function initializeTerrain(buf: SharedSimulationBuffers): void {
   const { bedHeight, waterDepth, momentumX, momentumY, compaction, saturation, materialFlags } = buf;
@@ -145,19 +145,19 @@ function initializeTerrain(buf: SharedSimulationBuffers): void {
 
   for (let y = 0; y < H; y++) {
     const rowOffset = y * W;
-    const slopeHeight = BEDROCK_ELEVATION + 0.02 + (y / H) * 0.06; // Gentle flat beach slope (0.02m -> 0.08m)
+    const slopeHeight = BEDROCK_ELEVATION + 0.02 + (y / H) * 0.06;
 
     for (let x = 0; x < W; x++) {
       const idx = rowOffset + x;
 
       bedHeight[idx] = slopeHeight;
       compaction[idx] = 0.5;
-      saturation[idx] = y < H * 0.15 ? 0.4 : 0.1; // Slightly damp near ocean edge, dry sand on upper beach face
+      saturation[idx] = y < H * 0.15 ? 0.4 : 0.1;
 
       waterDepth[idx] = 0.0;
       momentumX[idx] = 0.0;
       momentumY[idx] = 0.0;
-      materialFlags[idx] = 0.0; // Standard sand
+      materialFlags[idx] = 0.0;
     }
   }
 }
@@ -165,7 +165,10 @@ function initializeTerrain(buf: SharedSimulationBuffers): void {
 /**
  * Applies interactive raycast tool brushes to the grid.
  */
-function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x: number; y: number; radius: number; strength: number }): void {
+function applyToolBrush(
+  buf: SharedSimulationBuffers,
+  tool: { type: ToolType; x: number; y: number; radius: number; strength: number; flattenAngle?: number }
+): void {
   const { bedHeight, compaction, saturation, materialFlags } = buf;
   const W = GRID_WIDTH;
   const H = GRID_HEIGHT;
@@ -173,6 +176,14 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
   const cx = Math.floor(tool.x);
   const cy = Math.floor(tool.y);
   const r = Math.ceil(tool.radius);
+
+  // Pre-pass for COMPACT (Rolling Pin Planar Flattening Tool):
+  // Calculate average target elevation across brush footprint
+  let centerPlaneElev = 0.30;
+  if (tool.type === ToolType.COMPACT) {
+    const centerIdx = cy * W + cx;
+    centerPlaneElev = bedHeight[centerIdx];
+  }
 
   for (let dy = -r; dy <= r; dy++) {
     const py = cy + dy;
@@ -200,19 +211,35 @@ function applyToolBrush(buf: SharedSimulationBuffers, tool: { type: ToolType; x:
           bedHeight[idx] = Math.max(BEDROCK_ELEVATION, bedHeight[idx] - delta);
           break;
 
-        case ToolType.COMPACT:
-          compaction[idx] = Math.min(1.0, compaction[idx] + delta * 2.0);
-          saturation[idx] = Math.min(0.5, saturation[idx] + 0.1);
+        case ToolType.COMPACT: {
+          // Rolling Pin Planar Flattening Tool Algorithm:
+          // Flatten peaks and fill valleys onto a level tabletop plane or 45-degree ramp incline
+          const angle = tool.flattenAngle || 0;
+          let targetHeight = centerPlaneElev;
+
+          if (angle === 45) {
+            // 45-degree ramp slope calculation
+            targetHeight = centerPlaneElev + dy * 0.015;
+          }
+
+          // Smoothly blend elevation onto the plane like a rolling pin
+          const blendRate = Math.min(0.35, delta * 3.0);
+          bedHeight[idx] = bedHeight[idx] + (targetHeight - bedHeight[idx]) * blendRate;
+          bedHeight[idx] = Math.max(BEDROCK_ELEVATION, Math.min(MAX_BUILD_HEIGHT, bedHeight[idx]));
+
+          compaction[idx] = 1.0;    // Maximum packed rolling pin compaction
+          saturation[idx] = 0.50;  // High-gloss wet sand texture
           break;
+        }
 
         case ToolType.STONE:
-          materialFlags[idx] = 1.0; // Rigid non-erodible stone
+          materialFlags[idx] = 1.0;
           compaction[idx] = 1.0;
           break;
 
         case ToolType.WALL_90:
           bedHeight[idx] = Math.min(MAX_BUILD_HEIGHT, bedHeight[idx] + delta * 1.8);
-          materialFlags[idx] = 2.0; // 90-Degree wall flag for chunk collapse
+          materialFlags[idx] = 2.0;
           compaction[idx] = 0.95;
           saturation[idx] = 0.45;
           break;

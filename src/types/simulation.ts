@@ -46,10 +46,11 @@ export interface ScenarioConfig {
 
 export interface ToolApplyPayload {
   type: ToolType;
-  x: number;       // Cell grid index X [0..255]
-  y: number;       // Cell grid index Y [0..255]
-  radius: number;  // Radius in cell units
-  strength: number; // Applied strength/delta per frame
+  x: number;            // Cell grid index X [0..255]
+  y: number;            // Cell grid index Y [0..255]
+  radius: number;       // Radius in cell units
+  strength: number;     // Applied strength/delta per frame
+  flattenAngle?: number; // Rolling pin flatten angle (0 = flat table, 45 = ramp)
 }
 
 export type WorkerMessageRequest =
@@ -64,11 +65,9 @@ export type WorkerMessageRequest =
 export type WorkerMessageResponse =
   | { type: 'READY'; payload: { isShared: boolean } }
   | { type: 'TICK_COMPLETE'; payload: { frame: number; timeMs: number } }
-  | { type: 'ERROR'; payload: { message: string } }
   | { type: 'FALLBACK_UPDATE'; payload: { buffer: Float32Array; frame: number } };
 
 export interface SharedSimulationBuffers {
-  sharedArrayBuffer: SharedArrayBuffer;
   bedHeight: Float32Array;
   waterDepth: Float32Array;
   momentumX: Float32Array;
