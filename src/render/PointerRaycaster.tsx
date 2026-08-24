@@ -1,7 +1,7 @@
 /**
  * Sandcastle vs. Tide Simulator - Pointer Raycaster & Brush Reticle
  *
- * Casts 3D ray from pointer directly to terrain heightfield, projects holographic reticle,
+ * Casts 3D ray directly to terrain heightfield, projects holographic reticle,
  * and dispatches sculpting tool brush commands to the simulation bridge.
  */
 
@@ -27,10 +27,14 @@ export const PointerRaycaster: React.FC<PointerRaycasterProps> = ({
   const isPointerDownRef = useRef(false);
 
   const dispatchBrush = (worldPoint: THREE.Vector3) => {
-    // Translate 3D world coordinates [-3.2..3.2] to grid indices [0..255]
-    // Terrain mesh is rotated -Math.PI / 2 on X, so world.x maps to gridX and world.z maps to gridY
-    const gridX = Math.floor(((worldPoint.x + DOMAIN_SIZE_X / 2) / DOMAIN_SIZE_X) * GRID_WIDTH);
-    const gridY = Math.floor(((worldPoint.z + DOMAIN_SIZE_Y / 2) / DOMAIN_SIZE_Y) * GRID_HEIGHT);
+    // Correct 1:1 mapping from 3D world coordinates [-3.2..3.2] to 2D grid cell indices [0..255]
+    // worldPoint.x [-3.2..3.2] maps to gridX [0..255]
+    // worldPoint.z [-3.2..3.2] maps to gridY [0..255]
+    const normX = (worldPoint.x + DOMAIN_SIZE_X / 2.0) / DOMAIN_SIZE_X;
+    const normY = (worldPoint.z + DOMAIN_SIZE_Y / 2.0) / DOMAIN_SIZE_Y;
+
+    const gridX = Math.max(0, Math.min(GRID_WIDTH - 1, Math.floor(normX * GRID_WIDTH)));
+    const gridY = Math.max(0, Math.min(GRID_HEIGHT - 1, Math.floor(normY * GRID_HEIGHT)));
 
     const bridge = WorkerBridge.getInstance();
     bridge.applyTool(activeTool, gridX, gridY, brushRadius, brushStrength * 0.5);
@@ -62,7 +66,7 @@ export const PointerRaycaster: React.FC<PointerRaycasterProps> = ({
 
   return (
     <>
-      {/* Interaction Raycast plane aligned with terrain mesh */}
+      {/* Interaction Raycast mesh aligned precisely with terrain mesh */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}

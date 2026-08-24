@@ -2,8 +2,8 @@
  * Sandcastle vs. Tide Simulator - Piped-Flow Hydrodynamic Solver
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
- * Computes inter-cell virtual pipe fluxes, volume conservation scaling,
- * 3-sided open boundary absorption sinks, wave pulse generation, and Flather radiation condition.
+ * Features incremental wave train progression across beach over 60s,
+ * virtual pipe flux solving, and Flather radiation absorption.
  */
 
 import {
@@ -20,12 +20,11 @@ import {
 import { SharedSimulationBuffers, ScenarioConfig } from '../types/simulation';
 
 export class PipedFlowSolver {
-  // Pre-allocated scratch buffers to guarantee ZERO allocations during tick loops
-  private fluxR: Float32Array; // Rightward flux out of cell (m^3/s)
-  private fluxL: Float32Array; // Leftward flux out of cell (m^3/s)
-  private fluxT: Float32Array; // Topward flux out of cell (m^3/s)
-  private fluxB: Float32Array; // Bottomward flux out of cell (m^3/s)
-  private deltaDepth: Float32Array; // Water depth delta per step
+  private fluxR: Float32Array;
+  private fluxL: Float32Array;
+  private fluxT: Float32Array;
+  private fluxB: Float32Array;
+  private deltaDepth: Float32Array;
 
   private wavePhase: number = 0;
 
@@ -51,25 +50,26 @@ export class PipedFlowSolver {
     const pipeFactor = (dt * g * PIPE_CROSS_SECTION) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. SOLITARY ROLLING WAVE PULSE GENERATION AT Y = 0 (South Ocean Boundary)
-    this.wavePhase += (2.0 * Math.PI * dt) / scenario.wavePeriod;
-    if (this.wavePhase > 2.0 * Math.PI) {
-      this.wavePhase -= 2.0 * Math.PI;
-    }
+    // 1. INCREMENTAL WAVE TRAIN ADVANCEMENT (60-second total beach traversal at 1x)
+    // Seaward boundary at Y = 0 (ocean side)
+    const timeSec = frame * dt;
+    this.wavePhase += (2.0 * Math.PI * dt) / 4.0; // 4-second wave cycle
 
-    const baseSea = scenario.baseSeaLevel + (frame * scenario.tideRiseRate * dt);
-    
-    // Wave pulse peaking (solitary wave pulse profile)
-    const wavePulse = Math.pow(Math.max(0, Math.sin(this.wavePhase)), 4.0) * scenario.waveAmplitude * 2.5;
+    // Base tide sea level rises slowly over 60 seconds
+    const maxTideDepth = 0.35;
+    const tideProgress = Math.min(1.0, timeSec / 60.0);
+    const baseSea = scenario.baseSeaLevel + (tideProgress * maxTideDepth);
+
+    // Wave pulses: Each wave delivers an incremental surge packet
+    const wavePulse = Math.pow(Math.max(0, Math.sin(this.wavePhase)), 3.0) * scenario.waveAmplitude * 0.8;
 
     for (let x = 0; x < W; x++) {
-      const idx = x; // y = 0
+      const idx = x; // Y = 0 row (Ocean front)
       const targetWaterHeight = Math.max(0.0, baseSea + wavePulse - bedHeight[idx]);
       
-      // Inject forward wave momentum (v = sqrt(g * h)) to propel wave crests inland
       const celerity = Math.sqrt(g * Math.max(MIN_WATER_DEPTH, targetWaterHeight));
       waterDepth[idx] = targetWaterHeight;
-      momentumY[idx] = targetWaterHeight * celerity * 1.5; // Positive inland surge momentum
+      momentumY[idx] = targetWaterHeight * celerity * 0.8;
     }
 
     // 2. PIPE FLUX COMPUTATION
@@ -90,24 +90,21 @@ export class PipedFlowSolver {
         const z0 = bedHeight[idx];
         const totalHead0 = z0 + h0;
 
-        // Neighbor elevation heads
         const totalHeadR = (x < W - 1) ? bedHeight[idx + 1] + waterDepth[idx + 1] : totalHead0;
         const totalHeadL = (x > 0) ? bedHeight[idx - 1] + waterDepth[idx - 1] : totalHead0;
         const totalHeadT = (y < H - 1) ? bedHeight[idx + W] + waterDepth[idx + W] : totalHead0;
         const totalHeadB = (y > 0) ? bedHeight[idx - W] + waterDepth[idx - W] : totalHead0;
 
-        // Hydrostatic pressure head differences
         let fR = Math.max(0, this.fluxR[idx] + pipeFactor * (totalHead0 - totalHeadR));
         let fL = Math.max(0, this.fluxL[idx] + pipeFactor * (totalHead0 - totalHeadL));
         let fT = Math.max(0, this.fluxT[idx] + pipeFactor * (totalHead0 - totalHeadT));
         let fB = Math.max(0, this.fluxB[idx] + pipeFactor * (totalHead0 - totalHeadB));
 
-        // Add forward momentum bias to topward flux (Y direction)
+        // Direct wave momentum forward bias towards North shore (Y direction)
         if (momentumY[idx] > 0) {
-          fT += momentumY[idx] * pipeFactor * 0.5;
+          fT += momentumY[idx] * pipeFactor * 0.3;
         }
 
-        // Volume scaling to prevent negative water volume
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;
         const availableVolume = h0 * cellArea;
 
@@ -140,7 +137,6 @@ export class PipedFlowSolver {
 
         const totalOutflow = fR + fL + fT + fB;
 
-        // Inflows from neighbors
         const inR = (x > 0) ? this.fluxR[idx - 1] : 0;
         const inL = (x < W - 1) ? this.fluxL[idx + 1] : 0;
         const inT = (y > 0) ? this.fluxT[idx - W] : 0;
@@ -151,7 +147,6 @@ export class PipedFlowSolver {
 
         this.deltaDepth[idx] = netVolumeChange / cellArea;
 
-        // Net horizontal momentum component calculations
         const netUx = ((inR - fL) + (fR - inL)) * 0.5;
         const netUy = ((inT - fB) + (fT - inB)) * 0.5;
 
@@ -160,7 +155,6 @@ export class PipedFlowSolver {
       }
     }
 
-    // Apply depth updates and wetting/drying thresholds
     for (let i = 0; i < CELL_COUNT; i++) {
       let hNew = waterDepth[i] + this.deltaDepth[i];
       if (hNew < MIN_WATER_DEPTH) {
@@ -176,7 +170,6 @@ export class PipedFlowSolver {
       const leftIdx = y * W;
       const rightIdx = y * W + (W - 1);
 
-      // Sponge / absorber layer for X boundaries
       waterDepth[leftIdx] *= 0.85;
       waterDepth[rightIdx] *= 0.85;
       momentumX[leftIdx] = 0;
@@ -185,7 +178,6 @@ export class PipedFlowSolver {
 
     for (let x = 0; x < W; x++) {
       const topIdx = (H - 1) * W + x;
-      // Absorbing boundary at North shore
       waterDepth[topIdx] *= 0.85;
       momentumY[topIdx] = 0;
     }
