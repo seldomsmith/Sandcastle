@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Web Worker Simulation Engine
  *
  * Dedicated worker thread execution context running the Extended Piped-Flow hydrodynamics,
- * geotechnical detachment, tool brush applications, and atomic sync loop.
+ * geotechnical detachment, tool brush applications, and atomic sync loop with speed sub-stepping.
  */
 
 import {
@@ -37,7 +37,8 @@ let buffers: SharedSimulationBuffers | null = null;
 let isSharedBuffer: boolean = false;
 let isRunning: boolean = false;
 let frameCounter: number = 0;
-let tideFrameCounter: number = 0; // Dedicated counter tracking active tide elapsed frames
+let tideFrameCounter: number = 0;
+let speedMultiplier: number = 1.0;
 let loopInterval: number | null = null;
 
 const pipedFlowSolver = new PipedFlowSolver();
@@ -105,6 +106,10 @@ self.onmessage = (event: MessageEvent<WorkerMessageRequest>) => {
     }
 
     case SimCommand.SET_SCENARIO: {
+      if (message.payload.wavePeriod !== undefined) {
+        // Use wavePeriod update as speed signal multiplier
+        speedMultiplier = 5.0 / message.payload.wavePeriod;
+      }
       Object.assign(scenario, message.payload);
       break;
     }
@@ -235,7 +240,7 @@ function processControlSignals(buf: SharedSimulationBuffers): void {
 }
 
 /**
- * Primary 60 Hz physics tick execution step.
+ * Primary 60 Hz physics tick execution step with sub-stepping for speed control.
  */
 function executeSimulationTick(): void {
   if (!buffers) return;
@@ -250,14 +255,21 @@ function executeSimulationTick(): void {
   if (!lockAcquired) return;
 
   try {
-    // 3. Step Piped-Flow Hydrodynamics Engine if tide active
-    if (isRunning) {
-      tideFrameCounter++;
-      pipedFlowSolver.step(buffers, scenario, tideFrameCounter);
-    }
+    // Determine sub-steps per frame based on speed multiplier (e.g. 0.5x, 1x, 2x, 5x)
+    const subSteps = Math.max(1, Math.round(speedMultiplier));
+    const isHalfSpeed = speedMultiplier < 0.75;
 
-    // 4. Step Geotechnical Detachment & Slumping Engine
-    geotechnicalEngine.step(buffers);
+    for (let step = 0; step < subSteps; step++) {
+      // If half speed (0.5x), run physics on every second frame
+      if (isHalfSpeed && frameCounter % 2 !== 0) continue;
+
+      if (isRunning) {
+        tideFrameCounter++;
+        pipedFlowSolver.step(buffers, scenario, tideFrameCounter);
+      }
+
+      geotechnicalEngine.step(buffers);
+    }
 
     frameCounter++;
     SharedMemoryManager.atomicWrite(buffers.controlBuffer, CONTROL_FRAME_COUNTER, frameCounter);
