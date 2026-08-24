@@ -1,14 +1,13 @@
 /**
  * Sandcastle vs. Tide Simulator - R3F Camera Rig
  *
- * Provides multi-perspective camera controls (Isometric 35°, Strategic 90° Overhead, Low Wave POV)
- * with smooth dampening transitions and low-angle pitch locking.
+ * Provides multi-perspective camera controls with smooth dampening transitions,
+ * closer framing, and low-angle pitch locking.
  */
 
 import React, { useRef } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { DOMAIN_SIZE_X, DOMAIN_SIZE_Y } from '../config/constants';
 
 export enum CameraViewMode {
   ISOMETRIC = 'ISOMETRIC',
@@ -20,16 +19,13 @@ interface CameraRigProps {
   mode?: CameraViewMode;
 }
 
-export const CameraRig: React.FC<CameraRigProps> = ({ mode = CameraViewMode.ISOMETRIC }) => {
+export const CameraRig: React.FC<CameraRigProps> = () => {
   const controlsRef = useRef<OrbitControlsImpl>(null);
-
-  const centerX = 0;
-  const centerZ = 0;
 
   return (
     <OrbitControls
       ref={controlsRef}
-      target={[centerX, 0.2, centerZ]}
+      target={[0, 0.15, 0]}
       enableDamping
       dampingFactor={0.05}
       maxPolarAngle={Math.PI / 2 - 0.05} // Prevent camera clipping beneath bedrock baseline
