@@ -3,7 +3,7 @@
  *
  * Implements an Extended Piped-Flow Cellular Automaton (EPF-CA) fluid engine.
  * Features thin-sheet coastal water swash (pushing inland) and backwash (draining seaward),
- * open seaward drainage boundary at Y=0, and 60-second tide progression.
+ * open seaward drainage boundary at Y=0, and continuous 60-second tide progression.
  */
 
 import {
@@ -38,8 +38,9 @@ export class PipedFlowSolver {
 
   /**
    * Main hydrodynamic tick step.
+   * `tideFrame` is the active elapsed frame counter during tide surge.
    */
-  public step(buffers: SharedSimulationBuffers, scenario: ScenarioConfig, frame: number): void {
+  public step(buffers: SharedSimulationBuffers, scenario: ScenarioConfig, tideFrame: number): void {
     const { bedHeight, waterDepth, momentumX, momentumY } = buffers;
 
     const W = GRID_WIDTH;
@@ -47,12 +48,12 @@ export class PipedFlowSolver {
     const g = GRAVITY;
     const dt = DT;
     const dx = CELL_SIZE;
-    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.15) / VIRTUAL_PIPE_LENGTH;
+    const pipeFactor = (dt * g * PIPE_CROSS_SECTION * 0.2) / VIRTUAL_PIPE_LENGTH;
     const cellArea = dx * dx;
 
-    // 1. SWASH / BACKWASH WAVE CYCLE & TIDE ADVANCEMENT (60s total beach traversal)
-    const timeSec = frame * dt;
-    this.wavePhase += (2.0 * Math.PI * dt) / 5.0; // 5-second wave cycle (2.5s swash, 2.5s backwash)
+    // 1. SWASH / BACKWASH WAVE CYCLE & TIDE ADVANCEMENT (60s total beach traversal at 1x)
+    const timeSec = tideFrame * dt;
+    this.wavePhase += (2.0 * Math.PI * dt) / 4.0; // 4-second wave cycle (2s swash, 2s backwash)
 
     // Swash pulse factor [-1.0 .. +1.0]
     const swashPulse = Math.sin(this.wavePhase);
@@ -61,26 +62,24 @@ export class PipedFlowSolver {
     // Tide progress: 0.0 at T=0s -> 1.0 at T=60s
     const tideProgress = Math.min(1.0, timeSec / 60.0);
     
-    // Mean shoreline position advances from Y=0 to Y=200 over 60 seconds
-    const meanShorelineY = Math.floor(tideProgress * 200);
-    
-    // Wave swash reach reaches ~15 grid cells past mean shoreline during swash phase
-    const currentReachY = Math.min(H - 1, meanShorelineY + (isSwash ? Math.floor(swashPulse * 18) : -Math.floor(Math.abs(swashPulse) * 10)));
+    // Shoreline swash reach line moves steadily across grid Y [10..240] over 60 seconds
+    const meanShorelineY = Math.floor(10 + tideProgress * 230);
+    const currentReachY = Math.min(H - 1, meanShorelineY + (isSwash ? Math.floor(swashPulse * 16) : -Math.floor(Math.abs(swashPulse) * 8)));
 
-    // Thin coastal water sheet thickness (capped at 2.5cm = 0.025m max!)
+    // Thin coastal water sheet thickness (capped at 2.5cm max depth!)
     const maxSheetDepth = 0.025;
-    const swashDepth = isSwash ? (swashPulse * maxSheetDepth) : 0.002;
+    const swashDepth = isSwash ? (swashPulse * maxSheetDepth) : 0.003;
 
     // Inject thin swash sheet at seaward ocean boundary (Y = 0)
     for (let x = 0; x < W; x++) {
       const idx = x; // Y = 0 row (Ocean boundary)
       if (isSwash) {
         waterDepth[idx] = Math.min(maxSheetDepth, swashDepth);
-        momentumY[idx] = 0.15 * swashPulse; // Positive inland momentum
+        momentumY[idx] = 0.2 * swashPulse; // Positive inland momentum
       } else {
         // Backwash phase: drain water back out seaward into ocean
-        waterDepth[idx] *= 0.7;
-        momentumY[idx] = -0.2 * Math.abs(swashPulse); // Negative seaward momentum
+        waterDepth[idx] *= 0.6;
+        momentumY[idx] = -0.25 * Math.abs(swashPulse); // Negative seaward momentum
       }
     }
 
@@ -105,7 +104,7 @@ export class PipedFlowSolver {
         const idx = rowOffset + x;
         let h0 = waterDepth[idx];
 
-        // Hard cap depth to thin coastal sheet (max 3cm)
+        // Hard cap depth to thin coastal sheet (max 2.5cm)
         if (h0 > maxSheetDepth) {
           h0 = maxSheetDepth;
           waterDepth[idx] = maxSheetDepth;
@@ -134,9 +133,9 @@ export class PipedFlowSolver {
 
         // Swash / Backwash directional momentum bias
         if (momentumY[idx] > 0) {
-          fT += momentumY[idx] * pipeFactor * 0.2;
+          fT += momentumY[idx] * pipeFactor * 0.25;
         } else if (momentumY[idx] < 0) {
-          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.3; // Pull backwash seaward
+          fB += Math.abs(momentumY[idx]) * pipeFactor * 0.35; // Pull backwash seaward
         }
 
         const totalOutflowVolume = (fR + fL + fT + fB) * dt;

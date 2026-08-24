@@ -37,16 +37,17 @@ let buffers: SharedSimulationBuffers | null = null;
 let isSharedBuffer: boolean = false;
 let isRunning: boolean = false;
 let frameCounter: number = 0;
+let tideFrameCounter: number = 0; // Dedicated counter tracking active tide elapsed frames
 let loopInterval: number | null = null;
 
 const pipedFlowSolver = new PipedFlowSolver();
 const geotechnicalEngine = new GeotechnicalEngine();
 
-// Slow, Realistic Coastal Scenario Default Parameters
+// Default Simulation Scenario Parameters
 const scenario: ScenarioConfig = {
   waveAmplitude: 0.10,
-  wavePeriod: 12.0,       // Slow 12-second wave period
-  tideRiseRate: 0.00008,  // 10x slower sea-level rise rate
+  wavePeriod: 5.0,
+  tideRiseRate: 0.00008,
   baseSeaLevel: 0.05,
   windVelocityX: 0.2,
   windVelocityY: 0.1,
@@ -112,6 +113,7 @@ self.onmessage = (event: MessageEvent<WorkerMessageRequest>) => {
       if (buffers) {
         initializeTerrain(buffers);
         frameCounter = 0;
+        tideFrameCounter = 0;
       }
       break;
     }
@@ -155,7 +157,7 @@ function initializeTerrain(buf: SharedSimulationBuffers): void {
         compaction[idx] = 0.2;
       }
 
-      waterDepth[idx] = y < H * 0.15 ? (0.15 - (y / (H * 0.15)) * 0.15) : 0.0;
+      waterDepth[idx] = y < H * 0.1 ? (0.02 - (y / (H * 0.1)) * 0.02) : 0.0;
       momentumX[idx] = 0.0;
       momentumY[idx] = 0.0;
       saturation[idx] = waterDepth[idx] > 0 ? 0.8 : 0.1;
@@ -250,7 +252,8 @@ function executeSimulationTick(): void {
   try {
     // 3. Step Piped-Flow Hydrodynamics Engine if tide active
     if (isRunning) {
-      pipedFlowSolver.step(buffers, scenario, frameCounter);
+      tideFrameCounter++;
+      pipedFlowSolver.step(buffers, scenario, tideFrameCounter);
     }
 
     // 4. Step Geotechnical Detachment & Slumping Engine
