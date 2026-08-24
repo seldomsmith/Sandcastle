@@ -1,17 +1,25 @@
 /**
  * Sandcastle vs. Tide Simulator - R3F Water Surface Mesh
  *
- * Renders water layer plane bound to water depth and bed height DataTextures.
+ * Renders water layer plane bound to water depth and bed height DataTextures,
+ * supporting dynamic LightingPreset ocean colors and Night Tide bioluminescence.
  */
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { GRID_WIDTH, GRID_HEIGHT, DOMAIN_SIZE_X, DOMAIN_SIZE_Y } from '../config/constants';
 import { WorkerBridge } from '../bridge/WorkerBridge';
 import { waterVertexShader, waterFragmentShader } from './shaders/waterShader';
+import { LightingPreset, LIGHTING_PRESETS } from '../config/lightingPresets';
 
-export const WaterSurfaceMesh: React.FC = () => {
+interface WaterSurfaceMeshProps {
+  lightingPreset?: LightingPreset;
+}
+
+export const WaterSurfaceMesh: React.FC<WaterSurfaceMeshProps> = ({
+  lightingPreset = LIGHTING_PRESETS[0]
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
 
@@ -41,14 +49,25 @@ export const WaterSurfaceMesh: React.FC = () => {
       uWaterDepthMap: { value: waterTexture },
       uBedHeightMap: { value: bedTexture },
       uGridResolution: { value: GRID_WIDTH },
-      uSunDirection: { value: new THREE.Vector3(0.5, 0.8, 0.3) },
-      uSunColor: { value: new THREE.Color(1.0, 0.95, 0.85) },
-      uWaterColor: { value: new THREE.Color(0.12, 0.55, 0.78) },
-      uDeepWaterColor: { value: new THREE.Color(0.04, 0.22, 0.42) },
+      uSunDirection: { value: new THREE.Vector3(...lightingPreset.sunPosition).normalize() },
+      uSunColor: { value: new THREE.Color(lightingPreset.sunColor) },
+      uWaterColor: { value: new THREE.Color(lightingPreset.waterColor) },
+      uDeepWaterColor: { value: new THREE.Color(lightingPreset.deepWaterColor) },
+      uBioluminescent: { value: lightingPreset.bioluminescentFoam },
       uTime: { value: 0 }
     }),
     [waterTexture, bedTexture]
   );
+
+  useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uSunDirection.value.set(...lightingPreset.sunPosition).normalize();
+      materialRef.current.uniforms.uSunColor.value.set(lightingPreset.sunColor);
+      materialRef.current.uniforms.uWaterColor.value.set(lightingPreset.waterColor);
+      materialRef.current.uniforms.uDeepWaterColor.value.set(lightingPreset.deepWaterColor);
+      materialRef.current.uniforms.uBioluminescent.value = lightingPreset.bioluminescentFoam;
+    }
+  }, [lightingPreset]);
 
   useFrame((state) => {
     const bridge = WorkerBridge.getInstance();

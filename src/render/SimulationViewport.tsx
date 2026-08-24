@@ -79,7 +79,7 @@ export const SimulationViewport: React.FC<SimulationViewportProps> = ({
 
         {/* Dynamic Simulation Meshes */}
         <SandTerrainMesh showHeatmap={showHeatmap} showContours={showContours} />
-        <WaterSurfaceMesh />
+        <WaterSurfaceMesh lightingPreset={lightingPreset} />
 
         {/* GPU Spray Particle Engine & 3D Hover Telemetry Reticle */}
         <WaveParticleSystem isBioluminescent={lightingPreset.bioluminescentFoam} />

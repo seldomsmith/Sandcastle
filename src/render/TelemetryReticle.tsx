@@ -5,7 +5,7 @@
  * reading SharedArrayBuffer data to show live Water Depth (cm), Sand Elevation (cm), and Velocity (m/s).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
@@ -57,15 +57,27 @@ export const TelemetryReticle: React.FC = () => {
         const my = momentumY[idx];
         const vel = Math.abs(my) / Math.max(0.001, h);
 
-        setReticleData({
-          position: [intersectPoint.x, b + h + 0.05, intersectPoint.z],
-          waterDepthCm: Math.round(h * 100 * 10) / 10,
-          sandElevationCm: Math.round(b * 100 * 10) / 10,
-          velocityMs: Math.round(vel * 100) / 100,
-          isVisible: true
-        });
+        const newb = Math.round(b * 100 * 10) / 10;
+        const newh = Math.round(h * 100 * 10) / 10;
+        const newvel = Math.round(vel * 100) / 100;
+
+        // Avoid unnecessary React state churn on identical values
+        if (
+          !reticleData.isVisible ||
+          reticleData.sandElevationCm !== newb ||
+          reticleData.waterDepthCm !== newh ||
+          reticleData.velocityMs !== newvel
+        ) {
+          setReticleData({
+            position: [intersectPoint.x, b + h + 0.05, intersectPoint.z],
+            waterDepthCm: newh,
+            sandElevationCm: newb,
+            velocityMs: newvel,
+            isVisible: true
+          });
+        }
       }
-    } else {
+    } else if (reticleData.isVisible) {
       setReticleData((prev) => ({ ...prev, isVisible: false }));
     }
   });
