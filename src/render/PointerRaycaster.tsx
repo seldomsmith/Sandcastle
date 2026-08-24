@@ -1,13 +1,13 @@
 /**
  * Sandcastle vs. Tide Simulator - Pointer Raycaster & Brush Reticle
  *
- * Casts 3D ray from pointer to terrain heightfield, projects holographic reticle,
- * and dispatches tool brush commands to the simulation bridge.
+ * Casts 3D ray from pointer directly to terrain heightfield, projects holographic reticle,
+ * and dispatches sculpting tool brush commands to the simulation bridge.
  */
 
 import React, { useState, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame, ThreeEvent } from '@react-three/fiber';
+import { ThreeEvent } from '@react-three/fiber';
 import { DOMAIN_SIZE_X, DOMAIN_SIZE_Y, GRID_WIDTH, GRID_HEIGHT } from '../config/constants';
 import { WorkerBridge } from '../bridge/WorkerBridge';
 import { ToolType } from '../types/simulation';
@@ -25,6 +25,16 @@ export const PointerRaycaster: React.FC<PointerRaycasterProps> = ({
 }) => {
   const [hoverPos, setHoverPos] = useState<THREE.Vector3 | null>(null);
   const isPointerDownRef = useRef(false);
+
+  const dispatchBrush = (worldPoint: THREE.Vector3) => {
+    // Translate 3D world coordinates [-3.2..3.2] to grid indices [0..255]
+    // Terrain mesh is rotated -Math.PI / 2 on X, so world.x maps to gridX and world.z maps to gridY
+    const gridX = Math.floor(((worldPoint.x + DOMAIN_SIZE_X / 2) / DOMAIN_SIZE_X) * GRID_WIDTH);
+    const gridY = Math.floor(((worldPoint.z + DOMAIN_SIZE_Y / 2) / DOMAIN_SIZE_Y) * GRID_HEIGHT);
+
+    const bridge = WorkerBridge.getInstance();
+    bridge.applyTool(activeTool, gridX, gridY, brushRadius, brushStrength * 0.5);
+  };
 
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
     if (activeTool === ToolType.NONE) return;
@@ -50,18 +60,9 @@ export const PointerRaycaster: React.FC<PointerRaycasterProps> = ({
     isPointerDownRef.current = false;
   };
 
-  const dispatchBrush = (worldPoint: THREE.Vector3) => {
-    // Translate world 3D position [-3.2..3.2] to grid indices [0..255]
-    const gridX = ((worldPoint.x + DOMAIN_SIZE_X / 2) / DOMAIN_SIZE_X) * GRID_WIDTH;
-    const gridY = ((worldPoint.z + DOMAIN_SIZE_Y / 2) / DOMAIN_SIZE_Y) * GRID_HEIGHT;
-
-    const bridge = WorkerBridge.getInstance();
-    bridge.applyTool(activeTool, gridX, gridY, brushRadius, brushStrength);
-  };
-
   return (
     <>
-      {/* Invisible raycast interaction plane */}
+      {/* Interaction Raycast plane aligned with terrain mesh */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
@@ -80,9 +81,14 @@ export const PointerRaycaster: React.FC<PointerRaycasterProps> = ({
 
       {/* Holographic Reticle Overlay */}
       {hoverPos && activeTool !== ToolType.NONE && (
-        <mesh position={[hoverPos.x, hoverPos.y + 0.01, hoverPos.z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[(brushRadius * DOMAIN_SIZE_X / GRID_WIDTH) * 0.85, (brushRadius * DOMAIN_SIZE_X / GRID_WIDTH), 32]} />
-          <meshBasicMaterial color={activeTool === ToolType.DIG ? 0xef4444 : activeTool === ToolType.COMPACT ? 0xf59e0b : 0x38bdf8} side={THREE.DoubleSide} transparent opacity={0.75} />
+        <mesh position={[hoverPos.x, hoverPos.y + 0.02, hoverPos.z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[(brushRadius * DOMAIN_SIZE_X / GRID_WIDTH) * 0.8, (brushRadius * DOMAIN_SIZE_X / GRID_WIDTH), 32]} />
+          <meshBasicMaterial
+            color={activeTool === ToolType.DIG ? 0xef4444 : activeTool === ToolType.COMPACT ? 0xf59e0b : 0x38bdf8}
+            side={THREE.DoubleSide}
+            transparent
+            opacity={0.85}
+          />
         </mesh>
       )}
     </>

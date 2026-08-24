@@ -248,8 +248,10 @@ function executeSimulationTick(): void {
   if (!lockAcquired) return;
 
   try {
-    // 3. Step Piped-Flow Hydrodynamics Engine
-    pipedFlowSolver.step(buffers, scenario, frameCounter);
+    // 3. Step Piped-Flow Hydrodynamics Engine if tide active
+    if (isRunning) {
+      pipedFlowSolver.step(buffers, scenario, frameCounter);
+    }
 
     // 4. Step Geotechnical Detachment & Slumping Engine
     geotechnicalEngine.step(buffers);
@@ -268,7 +270,7 @@ function executeSimulationTick(): void {
     sendResponse({
       type: 'FALLBACK_UPDATE',
       payload: {
-        buffer: buffers.bedHeight, // Example transmission view
+        buffer: buffers.bedHeight,
         frame: frameCounter
       }
     });
@@ -282,6 +284,7 @@ function executeSimulationTick(): void {
 
 /**
  * Self-correcting hybrid 60 Hz simulation loop.
+ * Always ticks so tool brush strokes update in real time even during build phase!
  */
 function startSimulationLoop(): void {
   if (loopInterval !== null) clearInterval(loopInterval);
@@ -289,7 +292,7 @@ function startSimulationLoop(): void {
   const targetIntervalMs = 1000.0 / 60.0;
 
   loopInterval = self.setInterval(() => {
-    if (isRunning && buffers) {
+    if (buffers) {
       executeSimulationTick();
     }
   }, targetIntervalMs) as unknown as number;
