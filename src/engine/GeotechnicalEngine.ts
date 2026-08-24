@@ -2,7 +2,7 @@
  * Sandcastle vs. Tide Simulator - Geotechnical & Erosion Engine
  *
  * Handles hydrodynamic shear detachment, sediment transport capacity,
- * sand saturation diffusion, 90-degree vertical wall block chunk fractures, and wet-molded sand structural stiffness.
+ * sand saturation diffusion, 90-degree vertical wall block chunk fractures, and wet sand wave erosion.
  */
 
 import {
@@ -39,7 +39,7 @@ export class GeotechnicalEngine {
   }
 
   /**
-   * Performs water saturation diffusion, shear detachment, 90-degree wall chunk shear failure, and slumping updates.
+   * Performs water saturation diffusion, active wave shear detachment, 90-degree wall chunk shear failure, and slumping updates.
    */
   public step(buffers: SharedSimulationBuffers): void {
     const { bedHeight, waterDepth, momentumX, momentumY, compaction, saturation, materialFlags } = buffers;
@@ -51,7 +51,7 @@ export class GeotechnicalEngine {
 
     this.deltaSand.fill(0.0);
 
-    // 1. SATURATION, SHELL ARMOR & HYDRODYNAMIC DETACHMENT
+    // 1. ACTIVE WAVE EROSION & HYDRODYNAMIC DETACHMENT
     for (let i = 0; i < CELL_COUNT; i++) {
       const h = waterDepth[i];
       const mat = materialFlags[i];
@@ -60,28 +60,27 @@ export class GeotechnicalEngine {
       if (mat === 1.0) continue;
 
       if (h > MIN_WATER_DEPTH) {
-        saturation[i] = Math.min(1.0, saturation[i] + DISSOLUTION_RATE * 2.5 * dt);
+        saturation[i] = Math.min(1.0, saturation[i] + DISSOLUTION_RATE * 5.0 * dt);
       } else {
         saturation[i] = Math.max(0.0, saturation[i] - DISSOLUTION_RATE * 0.2 * dt);
       }
 
+      // Wave Erosion & Toe Scour: When water touches sand, erode and transport sediment
       if (h > MIN_WATER_DEPTH) {
         const mx = momentumX[i];
         const my = momentumY[i];
         const speed = Math.sqrt(mx * mx + my * my) / h;
 
-        // Seashell armor (Flag 4.0) increases detachment resistance 3.5x
         const armorFactor = mat === 4.0 ? 3.5 : 1.0;
-        const effectiveCriticalShear = CRITICAL_SHEAR_DETACHMENT * (1.0 + compaction[i] * 1.5) * armorFactor;
+        const effectiveCriticalShear = CRITICAL_SHEAR_DETACHMENT * 0.4 * armorFactor;
 
-        if (speed > effectiveCriticalShear) {
-          const excessShear = speed - effectiveCriticalShear;
-          const capacity = SEDIMENT_CAPACITY_COEFF * excessShear * h * 2.0;
-          const erosionAmount = Math.min(bedHeight[i] - BEDROCK_ELEVATION, capacity * dt);
+        // Wave drag erodes sand columns when water flows over them
+        const excessShear = Math.max(0.02, speed - effectiveCriticalShear);
+        const capacity = SEDIMENT_CAPACITY_COEFF * excessShear * h * 8.0;
+        const erosionAmount = Math.min(bedHeight[i] - BEDROCK_ELEVATION, capacity * dt);
 
-          if (erosionAmount > 0) {
-            this.deltaSand[i] -= erosionAmount;
-          }
+        if (erosionAmount > 0) {
+          this.deltaSand[i] -= erosionAmount;
         }
       }
     }
@@ -90,7 +89,7 @@ export class GeotechnicalEngine {
       bedHeight[i] = Math.max(BEDROCK_ELEVATION, bedHeight[i] + this.deltaSand[i]);
     }
 
-    // 2. WET-MOLDED SAND STIFFNESS & SLUMPING SOLVER
+    // 2. WET SAND LIQUEFACTION & SLUMPING SOLVER
     this.deltaSand.fill(0.0);
 
     for (let y = 0; y < H; y++) {
@@ -107,7 +106,7 @@ export class GeotechnicalEngine {
         const h = waterDepth[idx];
 
         // 90-degree wall (Flag 2.0): When undercut by water, fractures in discrete rectangular chunks
-        if (mat === 2.0 && (h > MIN_WATER_DEPTH || sat > 0.4)) {
+        if (mat === 2.0 && (h > MIN_WATER_DEPTH || sat > 0.3)) {
           let lowestNeighborIdx = -1;
           let lowestNeighborHeight = zb0;
 
@@ -123,25 +122,22 @@ export class GeotechnicalEngine {
             }
           }
 
-          if (lowestNeighborIdx !== -1 && (zb0 - lowestNeighborHeight) > 0.08) {
+          if (lowestNeighborIdx !== -1 && (zb0 - lowestNeighborHeight) > 0.06) {
             const chunkVolume = Math.min(zb0 - BEDROCK_ELEVATION, 0.12);
             this.deltaSand[idx] -= chunkVolume;
-            this.deltaSand[targetNeighborIdx || lowestNeighborIdx] += chunkVolume;
+            this.deltaSand[lowestNeighborIdx] += chunkVolume;
             materialFlags[idx] = 0.0;
             continue;
           }
         }
 
-        // Wet-Molded Sand Angle of Repose:
-        // Compacted wet sand (comp > 0.7) holds crisp steep 75-85 degree walls!
-        // Loose dry sand or submerged wet sand slumps to 8-30 degrees.
+        // Submerged sand dissolves and slumps into water (liquefaction)
         let targetReposeAngle = DRY_ANGLE_OF_REPOSE;
-        if (h > MIN_WATER_DEPTH || sat > 0.6) {
-          targetReposeAngle = SATURATED_ANGLE_OF_REPOSE * 0.7; // ~8 degrees for submerged/liquefied sand
+        if (h > MIN_WATER_DEPTH || sat > 0.4) {
+          targetReposeAngle = SATURATED_ANGLE_OF_REPOSE * 0.5; // ~6 degrees when submerged in water!
         } else {
-          // High compaction wet sand retains steep bucket turret walls (~80 degrees!)
           const steepnessFactor = Math.pow(comp, 2.0);
-          targetReposeAngle = DRY_ANGLE_OF_REPOSE + steepnessFactor * (1.40 - DRY_ANGLE_OF_REPOSE); // Up to ~82 degrees
+          targetReposeAngle = DRY_ANGLE_OF_REPOSE + steepnessFactor * (1.40 - DRY_ANGLE_OF_REPOSE);
         }
 
         const maxAllowedSlope = Math.tan(targetReposeAngle);
@@ -169,7 +165,7 @@ export class GeotechnicalEngine {
         }
 
         if (targetNeighborIdx !== -1 && maxExcessSlope > 0) {
-          const excessHeight = (maxExcessSlope - maxAllowedSlope) * targetNeighborDist * 0.4;
+          const excessHeight = (maxExcessSlope - maxAllowedSlope) * targetNeighborDist * 0.5;
           const transferVolume = Math.min(zb0 - BEDROCK_ELEVATION, excessHeight);
 
           this.deltaSand[idx] -= transferVolume;
